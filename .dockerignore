@@ -1,0 +1,9 @@
+.git
+.github
+.work
+data
+dist
+dist-server
+node_modules
+*.log
+coverage

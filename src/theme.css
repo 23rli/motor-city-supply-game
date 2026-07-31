@@ -1,0 +1,27 @@
+:root {
+  --font-body: 'Aptos', 'Trebuchet MS', sans-serif;
+  --font-display: 'Bahnschrift', 'DIN Alternate', 'Franklin Gothic Medium', sans-serif;
+  font-family: var(--font-body);
+  color: #17201e;
+  background: #edf0ee;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; }
+
+html {
+  min-width: 320px;
+  background-color: #edf0ee;
+  background-image:
+    linear-gradient(rgb(40 58 53 / 3%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(40 58 53 / 3%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+body { min-width: 320px; min-height: 100vh; margin: 0; }
+button, input, select, textarea { font: inherit; }
+button { letter-spacing: 0; }
+::selection { color: #fff; background: #167565; }

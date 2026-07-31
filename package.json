@@ -1,0 +1,55 @@
+{
+  "name": "motor-city-supply-game",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "tsx watch server/index.ts",
+    "dev:full": "concurrently -k -n web,api -c cyan,yellow \"npm:dev\" \"npm:dev:api\"",
+    "build": "npm run build:web && npm run build:api",
+    "build:web": "tsc -b && vite build",
+    "build:api": "npm run typecheck:api && tsup server/index.ts server/migrate.ts --format esm --platform node --target node22 --out-dir dist-server --clean --sourcemap",
+    "db:migrate": "tsx server/migrate.ts",
+    "db:migrate:built": "node dist-server/migrate.js",
+    "typecheck:api": "tsc -p tsconfig.server.json --noEmit",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "start:api": "node dist-server/index.js"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.4",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/helmet": "^13.1.0",
+    "@fastify/rate-limit": "^11.1.0",
+    "@fastify/static": "^10.1.2",
+    "fastify": "^5.10.0",
+    "lucide-react": "^1.26.0",
+    "pg": "^8.22.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/emscripten": "^1.41.5",
+    "@types/node": "^24.13.2",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^10.0.4",
+    "oxlint": "^1.71.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "esbuild": "0.28.1"
+  }
+}
