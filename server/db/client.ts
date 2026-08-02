@@ -64,7 +64,7 @@ const poolExecutor = (client: PoolClient): SqlExecutor => ({
 
 interface ManagedPostgresOptions {
   connectionString: string
-  certificateAuthority: string
+  certificateAuthority?: string
   maxConnections?: number
 }
 
@@ -75,10 +75,10 @@ export class ManagedPostgresSqlClient implements SqlClient {
     this.pool = new Pool({
       connectionString: options.connectionString,
       max: options.maxConnections ?? 10,
-      ssl: {
-        ca: options.certificateAuthority,
-        rejectUnauthorized: true,
-      },
+      // No CA means a same-host database, where TLS adds nothing to verify against.
+      ssl: options.certificateAuthority
+        ? { ca: options.certificateAuthority, rejectUnauthorized: true }
+        : false,
     })
   }
 
@@ -96,13 +96,22 @@ export class ManagedPostgresSqlClient implements SqlClient {
 
   async transaction<T>(callback: (transaction: SqlExecutor) => Promise<T>) {
     const connection = await this.pool.connect()
+    let transactionOpen = false
     try {
       await connection.query('BEGIN')
+      transactionOpen = true
       const result = await callback(poolExecutor(connection))
       await connection.query('COMMIT')
+      transactionOpen = false
       return result
     } catch (error) {
-      await connection.query('ROLLBACK')
+      if (transactionOpen) {
+        try {
+          await connection.query('ROLLBACK')
+        } catch {
+          // Preserve the operation or commit error that made the outcome uncertain.
+        }
+      }
       throw error
     } finally {
       connection.release()

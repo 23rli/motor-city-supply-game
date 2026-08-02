@@ -19,7 +19,7 @@ describe('server configuration', () => {
       'Invalid server configuration',
     )
     expect(() => readServerConfig({ NODE_ENV: 'production' })).toThrow(
-      'Production requires managed PostgreSQL',
+      'Production requires PostgreSQL',
     )
   })
 
@@ -34,6 +34,28 @@ describe('server configuration', () => {
     })
     expect(() => readServerConfig({
       DATABASE_URL: 'postgres://motor-city.internal/game',
-    })).toThrow('must be configured together')
+    })).toThrow('reached over the network requires DATABASE_SSL_CA')
+  })
+
+  it('accepts a database on the same host without a certificate authority', () => {
+    for (const host of ['localhost', '127.0.0.1', '[::1]']) {
+      expect(readServerConfig({
+        NODE_ENV: 'production',
+        DATABASE_URL: `postgres://motor:secret@${host}:5432/motor_city`,
+      })).toMatchObject({
+        cookieSecure: true,
+        databaseSslCa: undefined,
+      })
+    }
+  })
+
+  it('still refuses an unencrypted database anywhere but this host', () => {
+    expect(() => readServerConfig({
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://motor:secret@10.0.4.7:5432/motor_city',
+    })).toThrow('reached over the network requires DATABASE_SSL_CA')
+    expect(() => readServerConfig({
+      DATABASE_SSL_CA: 'orphan-ca',
+    })).toThrow('needs a DATABASE_URL')
   })
 })

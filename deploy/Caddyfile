@@ -1,0 +1,28 @@
+# Caddy serves the NEW game on :443 only.
+# The current game keeps :80, so no redirect vhost is created and the ACME HTTP
+# challenge is disabled - certificates are issued over TLS-ALPN on :443 instead.
+#
+# At cutover, once nginx is retired: delete the "auto_https disable_redirects" line
+# and the whole "tls" block, and Caddy will take :80 and redirect it to HTTPS.
+{
+	email __EMAIL__
+	auto_https disable_redirects
+}
+
+__HOSTNAME__ {
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:4000
+
+	log {
+		output file /var/log/caddy/motor-city.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

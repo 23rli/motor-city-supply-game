@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
@@ -12,7 +12,6 @@ import {
   Play,
   Plus,
   RotateCcw,
-  Timer,
 } from 'lucide-react'
 import './Game.css'
 import { ConverterPanel } from './components/ConverterPanel'
@@ -21,6 +20,7 @@ import { GameBoard } from './components/GameBoard'
 import { Modal } from './components/Modal'
 import { NewRunPanel, type ResourcePlan } from './components/NewRunPanel'
 import { RecipePanel } from './components/RecipePanel'
+import { RoundBriefing } from './components/RoundBriefing'
 import { StatisticsPanel } from './components/StatisticsPanel'
 import {
   advanceRound,
@@ -28,17 +28,38 @@ import {
   convertResources,
   createGame,
   createRandomResourceSchedule,
+  getCarStatus,
   getCompleted,
   getProjectedPenalty,
   getRevenue,
   getWip,
   moveCar,
+  repositionCar,
   resetRound,
 } from './game/engine'
-import type { CarModel, GameState, Resource, ResourcePool, Stage } from './game/types'
+import {
+  RESOURCES,
+  type CarModel,
+  type GameState,
+  type Resource,
+  type ResourcePool,
+  type Stage,
+} from './game/types'
 import type { PlayerCommand } from './team/types'
 
 const STORAGE_KEY = 'motor-city-demo-game-v1'
+
+type NoticeTone = 'info' | 'error' | 'success'
+
+interface Notice {
+  message: string
+  tone: NoticeTone
+}
+
+const OPENING_NOTICE: Notice = {
+  message: 'Drag a car to the next station, or select it and pick a lane.',
+  tone: 'info',
+}
 
 function loadGame(): GameState {
   try {
@@ -49,9 +70,6 @@ function loadGame(): GameState {
   }
   return createGame()
 }
-
-const formatTime = (seconds: number) =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
 
 export interface RemoteGameController {
   game: GameState
@@ -68,30 +86,34 @@ interface MotorCityAppProps {
 function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
   const [soloGame, setSoloGame] = useState<GameState>(loadGame)
   const [selectedCarId, setSelectedCarId] = useState<string | null>(null)
-  const [notice, setNotice] = useState('Select a car on the factory floor.')
+  const [notice, setNotice] = useState<Notice>(OPENING_NOTICE)
   const [busy, setBusy] = useState(false)
   const game = remote?.game ?? soloGame
-  const [secondsRemaining, setSecondsRemaining] = useState(
-    game.round >= 8 ? 180 : 600,
-  )
   const [activeModal, setActiveModal] = useState<
-    'new-run' | 'recipes' | 'converter' | 'statistics' | 'end-run' | null
+    'new-run' | 'recipes' | 'converter' | 'statistics' | 'end-run' | 'briefing' | null
   >(null)
+
+  const announce = useCallback(
+    (message: string, tone: NoticeTone = 'info') => setNotice({ message, tone }),
+    [],
+  )
 
   useEffect(() => {
     if (!remote) localStorage.setItem(STORAGE_KEY, JSON.stringify(soloGame))
   }, [remote, soloGame])
 
   useEffect(() => {
-    setSecondsRemaining(game.round >= 8 ? 180 : 600)
-  }, [game.round])
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setSecondsRemaining((current) => Math.max(0, current - 1))
-    }, 1000)
-    return () => window.clearInterval(timer)
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedCarId(null)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
   }, [])
+
+  const readyToMove = useMemo(
+    () => game.cars.filter((car) => getCarStatus(game, car).canMove).length,
+    [game],
+  )
 
   const completedTotal = Object.values(getCompleted(game)).reduce(
     (total, value) => total + value,
@@ -105,7 +127,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
   const handleSelectCar = (carId: string) => {
     setSelectedCarId((current) => (current === carId ? null : carId))
     const car = game.cars.find((candidate) => candidate.id === carId)
-    if (car) setNotice(`${car.model} model selected.`)
+    if (car) announce(`${car.model} model selected.`)
   }
 
   const runRemoteCommand = async (
@@ -117,34 +139,50 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     try {
       const error = await remote.onCommand(command)
       if (error) {
-        setNotice(error)
+        announce(error, 'error')
         return error
       }
-      setNotice(successMessage)
+      announce(successMessage, 'success')
       return null
     } finally {
       setBusy(false)
     }
   }
 
-  const handleMove = async (stage: Stage, row: number) => {
-    if (!selectedCarId) return
+  const handleMove = async (carId: string, stage: Stage, row: number) => {
     if (remote) {
       const error = await runRemoteCommand(
-        { type: 'move', carId: selectedCarId, toStage: stage, toRow: row },
+        { type: 'move', carId, toStage: stage, toRow: row },
         `Car moved to ${stage}.`,
       )
       if (!error) setSelectedCarId(null)
       return
     }
-    const result = moveCar(game, selectedCarId, stage, row)
+    const result = moveCar(game, carId, stage, row)
     if (result.error) {
-      setNotice(result.error)
+      announce(result.error, 'error')
       return
     }
     setSoloGame(result.state)
     setSelectedCarId(null)
-    setNotice(`Car moved to ${stage}.`)
+    announce(`Car moved to ${stage}.`, 'success')
+  }
+
+  const handleReposition = async (carId: string, row: number) => {
+    if (remote) {
+      await runRemoteCommand(
+        { type: 'reposition', carId, toRow: row },
+        `Moved to lane ${row + 1}. Allocation runs top lane down.`,
+      )
+      return
+    }
+    const result = repositionCar(game, carId, row)
+    if (result.error) {
+      announce(result.error, 'error')
+      return
+    }
+    setSoloGame(result.state)
+    announce(`Moved to lane ${row + 1}. Allocation runs top lane down.`, 'success')
   }
 
   const handleAllocate = async () => {
@@ -155,8 +193,18 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
       )
       return
     }
-    setSoloGame((current) => allocateResources(current))
-    setNotice('Resources allocated from the top lane down.')
+    const next = allocateResources(game)
+    const used = RESOURCES.reduce(
+      (total, resource) => total + (game.resources[resource] - next.resources[resource]),
+      0,
+    )
+    setSoloGame(next)
+    announce(
+      used > 0
+        ? `${used} material${used === 1 ? '' : 's'} allocated from the top lane down.`
+        : 'No station could take materials this round.',
+      used > 0 ? 'success' : 'info',
+    )
   }
 
   const handleAdvance = async () => {
@@ -165,12 +213,16 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         { type: 'advance' },
         `Round ${game.round + 2} is live.`,
       )
-      if (!error) setSelectedCarId(null)
+      if (!error) {
+        setSelectedCarId(null)
+        setActiveModal('briefing')
+      }
       return
     }
     setSoloGame((current) => advanceRound(current))
     setSelectedCarId(null)
-    setNotice(`Round ${game.round + 2} is live.`)
+    announce(`Round ${game.round + 2} is live.`, 'success')
+    setActiveModal('briefing')
   }
 
   const handleReset = async () => {
@@ -184,7 +236,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     }
     setSoloGame((current) => resetRound(current))
     setSelectedCarId(null)
-    setNotice('Round restored to its starting position.')
+    announce('Round restored to its starting position.')
   }
 
   const handleNewGame = (models: CarModel[], resourcePlan: ResourcePlan) => {
@@ -195,7 +247,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         : undefined,
     }))
     setSelectedCarId(null)
-    setNotice('New classic run ready.')
+    setNotice(OPENING_NOTICE)
     setActiveModal(null)
   }
 
@@ -209,7 +261,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     const result = convertResources(game, spend, receive)
     if (result.error) return result.error
     setSoloGame(result.state)
-    setNotice(`Four resources exchanged for one ${receive}.`)
+    announce(`Four resources exchanged for one ${receive}.`, 'success')
     return null
   }
 
@@ -229,11 +281,9 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         <div className="shift-readout" aria-label="Round status">
           <div>
             <span>Round</span>
-            <strong>{String(game.round + 1).padStart(2, '0')}</strong>
-          </div>
-          <div className={secondsRemaining === 0 ? 'timer-expired' : ''}>
-            <span><Timer size={14} aria-hidden="true" /> Time</span>
-            <strong>{formatTime(secondsRemaining)}</strong>
+            <strong key={game.round} className="value-pulse">
+              {String(game.round + 1).padStart(2, '0')}
+            </strong>
           </div>
         </div>
 
@@ -244,7 +294,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
             </button>
           )}
           <button
-            className="button button-quiet new-run-button"
+            className="button button-quiet"
             type="button"
             onClick={remote ? remote.onExit : () => setActiveModal('new-run')}
           >
@@ -256,11 +306,16 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
 
       <section className="operations-bar" aria-label="Current resources and actions">
         <div className="resource-list">
-          {(['red', 'yellow', 'blue'] as const).map((resource) => (
+          {RESOURCES.map((resource) => (
             <div className={`resource resource-${resource}`} key={resource}>
               <span className="resource-swatch" aria-hidden="true" />
               <span>{resource} material</span>
-              <strong>{game.resources[resource]}</strong>
+              <strong
+                key={`${game.round}-${game.resources[resource]}`}
+                className="value-pulse"
+              >
+                {game.resources[resource]}
+              </strong>
             </div>
           ))}
         </div>
@@ -286,11 +341,17 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         </section>
 
         <div className="board-heading">
-          <div><p>Plant 01</p><h2>Factory floor</h2></div>
+          <div>
+            <p>Plant 01</p>
+            <h2>Factory floor</h2>
+          </div>
           <div className="board-heading-actions">
             <div className="board-legend" aria-label="Board status legend">
-              <span><i className="legend-ready" /> Ready</span>
-              <span><i className="legend-wait" /> Processing</span>
+              <span className="ready-count">
+                <i className="legend-ready" /> {readyToMove} ready to move
+              </span>
+              <span><i className="legend-wait" /> Waiting</span>
+              <span><i className="legend-cure" /> Curing</span>
             </div>
             <button className="button button-secondary" type="button" onClick={() => setActiveModal('statistics')}>
               <BarChart3 size={16} aria-hidden="true" /> Statistics
@@ -301,8 +362,11 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         <GameBoard
           game={game}
           selectedCarId={selectedCarId}
+          busy={busy}
           onSelectCar={handleSelectCar}
           onMove={handleMove}
+          onReposition={handleReposition}
+          onBlocked={(message) => announce(message, 'error')}
         />
       </main>
 
@@ -310,7 +374,9 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         <button className="button button-quiet" type="button" onClick={handleReset} disabled={busy}>
           <RotateCcw size={17} aria-hidden="true" /> Reset round
         </button>
-        <p role="status" aria-live="polite">{notice}</p>
+        <p className={`dock-notice notice-${notice.tone}`} role="status" aria-live="polite">
+          {notice.message}
+        </p>
         <button className="button button-end" type="button" onClick={() => setActiveModal('end-run')}>
           <Flag size={16} aria-hidden="true" /> {remote ? 'Summary' : 'End run'}
         </button>
@@ -319,8 +385,19 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         </button>
       </footer>
 
-      <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>
-        <NewRunPanel enabledModels={game.config.enabledModels} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
+      <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>        <NewRunPanel enabledModels={game.config.enabledModels} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
+      </Modal>
+      <Modal
+        open={activeModal === 'briefing'}
+        eyebrow={`Shift ${String(game.round + 1).padStart(2, '0')}`}
+        title={`Round ${game.round + 1}`}
+        onClose={() => setActiveModal(null)}
+      >
+        <RoundBriefing
+          game={game}
+          previous={game.history[game.history.length - 1] ?? null}
+          onDismiss={() => setActiveModal(null)}
+        />
       </Modal>
       <Modal open={activeModal === 'recipes'} eyebrow="Reference" title="Model recipes" onClose={() => setActiveModal(null)} wide>
         <RecipePanel config={game.config} />

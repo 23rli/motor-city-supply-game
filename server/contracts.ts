@@ -45,6 +45,11 @@ export const gameParamsSchema = z.object({
   gameId: z.string().uuid(),
 }).strict()
 
+export const participantParamsSchema = z.object({
+  gameId: z.string().uuid(),
+  participantId: z.string().uuid(),
+}).strict()
+
 export const endSessionSchema = z.object({
   penaltyRound: z.number().int().min(1).max(10_000),
   endRound: z.number().int().min(1).max(10_000),
@@ -58,6 +63,11 @@ const commandSchema = z.discriminatedUnion('type', [
     type: z.literal('move'),
     carId: z.string().min(1).max(100),
     toStage: stageSchema,
+    toRow: z.number().int().min(0).max(7),
+  }).strict(),
+  z.object({
+    type: z.literal('reposition'),
+    carId: z.string().min(1).max(64),
     toRow: z.number().int().min(0).max(7),
   }).strict(),
   z.object({ type: z.literal('allocate') }).strict(),

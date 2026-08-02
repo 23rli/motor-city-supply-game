@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react'
 import MotorCityApp from '../MotorCityApp'
+import { CohortBoard } from '../components/CohortBoard'
 import { ApiClientError, teamApi } from './api'
 import type {
   PlayerCommand,
@@ -19,16 +20,20 @@ import type {
 
 interface TeamSessionProps {
   recoveryCode: string | null
+  resumed?: boolean
+  initialSnapshot?: TeamSessionSnapshot | null
   onExit: () => void
   onInvalid: () => void
 }
 
 export function TeamSession({
   recoveryCode,
+  resumed = false,
+  initialSnapshot = null,
   onExit,
   onInvalid,
 }: TeamSessionProps) {
-  const [snapshot, setSnapshot] = useState<TeamSessionSnapshot | null>(null)
+  const [snapshot, setSnapshot] = useState<TeamSessionSnapshot | null>(initialSnapshot)
   const [report, setReport] = useState<TeamReport | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -37,6 +42,16 @@ export function TeamSession({
   const [connectionState, setConnectionState] = useState<
     'syncing' | 'synced' | 'offline'
   >('syncing')
+  const [showResumed, setShowResumed] = useState(resumed)
+  const [readmitted, setReadmitted] = useState<
+    { name: string; recoveryCode: string } | null
+  >(null)
+
+  useEffect(() => {
+    if (!showResumed) return
+    const timer = window.setTimeout(() => setShowResumed(false), 5_000)
+    return () => window.clearTimeout(timer)
+  }, [showResumed])
 
   const snapshotFingerprint = (value: TeamSessionSnapshot) => JSON.stringify({
     game: value.game,
@@ -147,14 +162,21 @@ export function TeamSession({
     && snapshot.state
   ) {
     return (
-      <MotorCityApp
-        remote={{
-          game: snapshot.state,
-          sessionLabel: `Team ${snapshot.game.code} / ${connectionState}`,
-          onCommand: sendCommand,
-          onExit,
-        }}
-      />
+      <>
+        {showResumed && (
+          <p className="resume-toast" role="status">
+            Welcome back &mdash; your factory is exactly as you left it.
+          </p>
+        )}
+        <MotorCityApp
+          remote={{
+            game: snapshot.state,
+            sessionLabel: `Team ${snapshot.game.code} / ${connectionState}`,
+            onCommand: sendCommand,
+            onExit,
+          }}
+        />
+      </>
     )
   }
 
@@ -179,6 +201,23 @@ export function TeamSession({
     }
   }
 
+  const readmitPlayer = async (player: { id: string; name: string }) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const issued = await teamApi.readmitParticipant(snapshot.game.id, player.id)
+      setReadmitted({ name: issued.name, recoveryCode: issued.recoveryCode })
+    } catch (caught) {
+      setError(
+        caught instanceof ApiClientError
+          ? caught.message
+          : 'A new recovery code could not be issued.',
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="team-room">
       <header className="room-header">
@@ -196,6 +235,12 @@ export function TeamSession({
           <button className="icon-button room-copy" type="button" title="Copy join code" aria-label="Copy join code" onClick={() => void navigator.clipboard.writeText(snapshot.game.code)}><Clipboard size={19} /></button>
           <div className={`room-state state-${snapshot.game.status}`}><i /><span>{snapshot.game.status}</span></div>
         </section>
+
+        {showResumed && (
+          <p className="resume-toast resume-toast-inline" role="status">
+            Welcome back &mdash; your session was restored.
+          </p>
+        )}
 
         {recoveryCode && (
           <section className="recovery-banner" aria-label="Session recovery code">
@@ -284,6 +329,17 @@ export function TeamSession({
             )}
           </section>
         </div>
+
+        {snapshot.participant.role === 'facilitator' && (
+          <CohortBoard
+            players={report?.players ?? []}
+            code={snapshot.game.code}
+            finished={snapshot.game.status === 'finished'}
+            onReadmit={(player) => void readmitPlayer(player)}
+            readmitted={readmitted}
+            onDismissReadmit={() => setReadmitted(null)}
+          />
+        )}
 
         {(snapshot.participant.role === 'facilitator' || snapshot.game.status === 'finished') && (
           <section className="leaderboard-panel" aria-labelledby="leaderboard-title">

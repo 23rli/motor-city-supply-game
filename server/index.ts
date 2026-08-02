@@ -11,7 +11,7 @@ import { SqlSessionStore } from './pglite-session-store'
 
 const config = readServerConfig(process.env)
 let sqlClient: SqlClient
-if (config.databaseUrl && config.databaseSslCa) {
+if (config.databaseUrl) {
   sqlClient = new ManagedPostgresSqlClient({
     connectionString: config.databaseUrl,
     certificateAuthority: config.databaseSslCa,

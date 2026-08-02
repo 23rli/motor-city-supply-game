@@ -497,6 +497,7 @@ export class SqlSessionStore implements SessionStore {
     return this.client.transaction(async (tx) => {
       const { participant, game } = await this.authenticate(tx, token)
       this.requireGame(participant, game, gameId)
+      this.requireReportAccess(participant, game)
       return this.buildReport(tx, game)
     })
   }
@@ -583,6 +584,35 @@ export class SqlSessionStore implements SessionStore {
     )
   }
 
+  /** Rotates one participant's recovery code so a facilitator can read it to them aloud. */
+  async issueRecoveryCode(token: string, gameId: string, participantId: string) {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token)
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
+
+      const result = await tx.query<ParticipantRow>(
+        `SELECT * FROM participants WHERE id = $1 AND game_id = $2 FOR UPDATE`,
+        [participantId, gameId],
+      )
+      const target = result.rows[0]
+      if (!target) {
+        throw new ApiError(
+          404,
+          'PARTICIPANT_NOT_FOUND',
+          'That player is not in this session.',
+        )
+      }
+
+      const { recoveryCode } = issueSessionSecrets()
+      await tx.query(
+        `UPDATE participants SET recovery_hash = $1 WHERE id = $2`,
+        [hashSecret(recoveryCode), target.id],
+      )
+      return { participantId: target.id, name: target.name, recoveryCode }
+    })
+  }
+
   private async buildReport(client: SqlExecutor, game: GameRow) {
     const result = await client.query<ParticipantRow>(
       `SELECT p.* FROM participants p
@@ -620,6 +650,19 @@ export class SqlSessionStore implements SessionStore {
   private requireFacilitator(participant: ParticipantRow) {
     if (participant.role !== 'facilitator') {
       throw new ApiError(403, 'FACILITATOR_REQUIRED', 'Only the facilitator can do that.')
+    }
+  }
+
+  private requireReportAccess(
+    participant: ParticipantRow,
+    game: GameRow,
+  ) {
+    if (participant.role !== 'facilitator' && game.status !== 'finished') {
+      throw new ApiError(
+        403,
+        'REPORT_FORBIDDEN',
+        'Player reports are available after the facilitator ends the game.',
+      )
     }
   }
 

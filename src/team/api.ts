@@ -29,6 +29,9 @@ export class ApiClientError extends Error {
   }
 }
 
+/** A stalled connection must fail loudly rather than leave the UI waiting forever. */
+const REQUEST_TIMEOUT_MS = 15_000
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -43,6 +46,7 @@ async function request<T>(
       ...options,
       headers,
       credentials: 'same-origin',
+      signal: options.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
   } catch {
     throw new ApiClientError(
@@ -121,6 +125,13 @@ export const teamApi = {
 
   getReport(gameId: string) {
     return request<TeamReport>(`/api/games/${gameId}/report`)
+  },
+
+  readmitParticipant(gameId: string, participantId: string) {
+    return request<{ participantId: string; name: string; recoveryCode: string }>(
+      `/api/games/${gameId}/participants/${participantId}/recovery`,
+      { method: 'POST' },
+    )
   },
 
   sendCommand(

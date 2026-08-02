@@ -1,4 +1,4 @@
-import { getRoundSummary } from '../src/game/engine'
+import { getPaintBoothStatus, getRoundSummary } from '../src/game/engine'
 import type { GameState, RoundSummary } from '../src/game/types'
 
 export interface ReportSettings {
@@ -24,6 +24,7 @@ export function calculatePlayerReport(
   const summaries = [...state.history, getRoundSummary(state)]
   const endSummary = summaryAtOrBefore(summaries, settings.endRound)
   const penaltySummary = summaryAtOrBefore(summaries, settings.penaltyRound)
+  const booth = getPaintBoothStatus(state)
   return {
     round: endSummary.round,
     completed: endSummary.completed,
@@ -33,5 +34,13 @@ export function calculatePlayerReport(
     projectedScore: endSummary.revenue - penaltySummary.projectedPenalty,
     scoredThroughRound: endSummary.round + 1,
     penaltyMeasuredAtRound: penaltySummary.round + 1,
+    // Live signals, always read from the player's current board rather than the scored round.
+    currentRound: state.round + 1,
+    stranded: { ...state.resources },
+    paint: {
+      occupancy: booth.occupancy,
+      curing: booth.curing,
+      cured: booth.cured,
+    },
   }
 }

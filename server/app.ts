@@ -10,6 +10,7 @@ import {
   createSessionSchema,
   endSessionSchema,
   gameParamsSchema,
+  participantParamsSchema,
   joinSessionSchema,
   playerCommandSchema,
   rejoinSessionSchema,
@@ -256,6 +257,19 @@ export function buildApp(
     return store.getReport(
       sessionToken(request),
       gameId,
+    )
+  })
+
+  // Lets a facilitator hand a fresh code to a student whose device died mid-session.
+  app.post('/api/games/:gameId/participants/:participantId/recovery', async (request) => {
+    const { gameId, participantId } = parse(
+      participantParamsSchema,
+      request.params,
+    )
+    return store.issueRecoveryCode(
+      sessionToken(request),
+      gameId,
+      participantId,
     )
   })
 

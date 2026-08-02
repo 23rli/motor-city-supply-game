@@ -128,6 +128,53 @@ describe('multiplayer API', () => {
     expect(move.statusCode).toBe(200)
     expect(move.json().state.cars).toHaveLength(5)
 
+    const slide = await app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(playerA.cookie),
+      payload: {
+        expectedVersion: 1,
+        idempotencyKey: randomUUID(),
+        command: {
+          type: 'reposition',
+          carId: playerA.state.cars[0].id,
+          toRow: 6,
+        },
+      },
+    })
+    expect(slide.statusCode).toBe(200)
+    const slid = slide.json().state.cars.find(
+      (car: { id: string }) => car.id === playerA.state.cars[0].id,
+    )
+    expect(slid).toMatchObject({ stage: 'manufacturing', row: 6 })
+    // A slide re-orders a station; it must never mint another car.
+    expect(slide.json().state.cars).toHaveLength(5)
+
+    const occupiedLane = await app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(playerA.cookie),
+      payload: {
+        expectedVersion: 2,
+        idempotencyKey: randomUUID(),
+        command: { type: 'reposition', carId: playerA.state.cars[1].id, toRow: 1 },
+      },
+    })
+    expect(occupiedLane.statusCode).toBe(422)
+    expect(occupiedLane.json().error.code).toBe('INVALID_MOVE')
+
+    const offBoard = await app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(playerA.cookie),
+      payload: {
+        expectedVersion: 2,
+        idempotencyKey: randomUUID(),
+        command: { type: 'reposition', carId: playerA.state.cars[1].id, toRow: 9 },
+      },
+    })
+    expect(offBoard.statusCode).toBe(400)
+
     const restoredB = await app.inject({
       method: 'GET',
       url: '/api/session',
@@ -232,7 +279,7 @@ describe('multiplayer API', () => {
   it('validates input, names, authentication, and aggregated reports', async () => {
     const app = makeApp()
     const created = await createSession(app)
-    await joinSession(app, created.game.code, 'Frankie')
+    const player = await joinSession(app, created.game.code, 'Frankie')
 
     const duplicate = await app.inject({
       method: 'POST',
@@ -256,6 +303,14 @@ describe('multiplayer API', () => {
     })
     expect(unauthorized.statusCode).toBe(401)
 
+    const playerReport = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/report`,
+      headers: auth(player.cookie),
+    })
+    expect(playerReport.statusCode).toBe(403)
+    expect(playerReport.json().error.code).toBe('REPORT_FORBIDDEN')
+
     const report = await app.inject({
       method: 'GET',
       url: `/api/games/${created.game.id}/report`,
@@ -265,6 +320,63 @@ describe('multiplayer API', () => {
     expect(report.json().players).toEqual([
       expect.objectContaining({ name: 'Frankie', projectedScore: 0 }),
     ])
+  })
+
+  it('lets only the facilitator re-admit a player who lost their device', async () => {
+    const app = makeApp()
+    const created = await createSession(app)
+    const player = await joinSession(app, created.game.code, 'Rowan')
+    const other = await joinSession(app, created.game.code, 'Sasha')
+
+    const asPlayer = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}/recovery`,
+      headers: auth(other.cookie),
+    })
+    expect(asPlayer.statusCode).toBe(403)
+    expect(asPlayer.json().error.code).toBe('FACILITATOR_REQUIRED')
+
+    const issued = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}/recovery`,
+      headers: auth(created.cookie),
+    })
+    expect(issued.statusCode).toBe(200)
+    expect(issued.json()).toMatchObject({ name: 'Rowan' })
+    const freshCode = issued.json().recoveryCode as string
+    expect(freshCode).not.toBe(player.recoveryCode)
+
+    // The code the student never had is now the only one that works.
+    const staleAttempt = await app.inject({
+      method: 'POST',
+      url: '/api/games/rejoin',
+      payload: {
+        code: created.game.code,
+        playerName: 'Rowan',
+        recoveryCode: player.recoveryCode,
+      },
+    })
+    expect(staleAttempt.statusCode).toBe(401)
+
+    const rejoined = await app.inject({
+      method: 'POST',
+      url: '/api/games/rejoin',
+      payload: {
+        code: created.game.code,
+        playerName: 'Rowan',
+        recoveryCode: freshCode,
+      },
+    })
+    expect(rejoined.statusCode).toBe(200)
+    expect(rejoined.json().participant.name).toBe('Rowan')
+
+    const strangerGame = await createSession(app)
+    const crossSession = await app.inject({
+      method: 'POST',
+      url: `/api/games/${strangerGame.game.id}/participants/${player.participant.id}/recovery`,
+      headers: auth(created.cookie),
+    })
+    expect(crossSession.statusCode).toBe(403)
   })
 
   it('rotates recovery credentials and revokes browser sessions', async () => {

@@ -1,0 +1,29 @@
+[Unit]
+Description=Motor City supply game
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=motorcity
+Group=motorcity
+WorkingDirectory=/opt/motor-city
+EnvironmentFile=/etc/motor-city.env
+ExecStart=/opt/motor-city/node/bin/node /opt/motor-city/dist-server/index.js
+Restart=always
+RestartSec=3
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/motor-city
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+
+[Install]
+WantedBy=multi-user.target

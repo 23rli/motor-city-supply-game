@@ -2,6 +2,19 @@ import { z } from 'zod'
 
 const booleanString = z.enum(['true', 'false']).transform((value) => value === 'true')
 
+/** A database on this host needs no TLS; anything reached over a network does. */
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', ''])
+
+export function databaseIsLoopback(connectionString: string) {
+  try {
+    // URL keeps IPv6 literals bracketed, e.g. "[::1]".
+    const host = new URL(connectionString).hostname.replace(/^\[|\]$/g, '')
+    return LOOPBACK_HOSTS.has(host)
+  } catch {
+    return false
+  }
+}
+
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_001),
@@ -14,16 +27,26 @@ const environmentSchema = z.object({
   STATIC_ROOT: z.string().trim().min(1).default('./dist'),
   MIGRATE_ON_START: booleanString.default(false),
 }).passthrough().superRefine((data, context) => {
-  if (Boolean(data.DATABASE_URL) !== Boolean(data.DATABASE_SSL_CA)) {
+  if (data.DATABASE_SSL_CA && !data.DATABASE_URL) {
     context.addIssue({
       code: 'custom',
-      message: 'DATABASE_URL and DATABASE_SSL_CA must be configured together.',
+      message: 'DATABASE_SSL_CA needs a DATABASE_URL to apply to.',
+    })
+  }
+  if (
+    data.DATABASE_URL
+    && !data.DATABASE_SSL_CA
+    && !databaseIsLoopback(data.DATABASE_URL)
+  ) {
+    context.addIssue({
+      code: 'custom',
+      message: 'A database reached over the network requires DATABASE_SSL_CA.',
     })
   }
   if (data.NODE_ENV === 'production' && !data.DATABASE_URL) {
     context.addIssue({
       code: 'custom',
-      message: 'Production requires managed PostgreSQL configuration.',
+      message: 'Production requires PostgreSQL configuration.',
     })
   }
 })

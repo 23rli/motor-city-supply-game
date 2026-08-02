@@ -3,6 +3,7 @@ import {
   allocateResources,
   convertResources,
   moveCar,
+  repositionCar,
   resetRound,
 } from '../src/game/engine'
 import type { GameState } from '../src/game/types'
@@ -21,6 +22,12 @@ export function applyPlayerCommand(
   switch (command.type) {
     case 'move': {
       const result = moveCar(state, command.carId, command.toStage, command.toRow)
+      return result.error
+        ? { state, errorCode: 'INVALID_MOVE', error: result.error }
+        : { state: result.state }
+    }
+    case 'reposition': {
+      const result = repositionCar(state, command.carId, command.toRow)
       return result.error
         ? { state, errorCode: 'INVALID_MOVE', error: result.error }
         : { state: result.state }

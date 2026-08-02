@@ -72,6 +72,12 @@ export interface IssuedSession {
   stateVersion?: number
 }
 
+export interface ReadmittedParticipant {
+  participantId: string
+  name: string
+  recoveryCode: string
+}
+
 export interface SessionStore {
   createSession(input: CreateSessionInput): Promise<IssuedSession>
   joinSession(input: JoinSessionInput): Promise<IssuedSession>
@@ -82,6 +88,11 @@ export interface SessionStore {
   endSession(token: string, gameId: string, input: EndSessionInput): Promise<unknown>
   executeCommand(token: string, input: PlayerCommandInput): Promise<PlayerCommandResult>
   getReport(token: string, gameId: string): Promise<unknown>
+  issueRecoveryCode(
+    token: string,
+    gameId: string,
+    participantId: string,
+  ): Promise<ReadmittedParticipant>
   cleanupExpiredData?(): Promise<void>
   close?(): Promise<void>
 }
@@ -242,6 +253,29 @@ export class InMemorySessionStore implements SessionStore {
     }
   }
 
+  /** Rotates one participant's recovery code so a facilitator can read it to them aloud. */
+  async issueRecoveryCode(
+    token: string,
+    gameId: string,
+    participantId: string,
+  ): Promise<ReadmittedParticipant> {
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
+
+    const target = this.participants.get(participantId)
+    if (!target || target.gameId !== session.id) {
+      throw new ApiError(
+        404,
+        'PARTICIPANT_NOT_FOUND',
+        'That player is not in this session.',
+      )
+    }
+
+    const { recoveryCode } = issueSessionSecrets()
+    target.recoveryHash = hashSecret(recoveryCode)
+    return { participantId: target.id, name: target.name, recoveryCode }
+  }
+
   async getSession(token: string) {
     const { participant, session } = this.authenticate(token)
     participant.lastSeenAt = now()
@@ -354,7 +388,8 @@ export class InMemorySessionStore implements SessionStore {
   }
 
   async getReport(token: string, gameId: string) {
-    const { session } = this.authenticateForGame(token, gameId)
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireReportAccess(participant, session)
     return this.buildReport(session)
   }
 
@@ -395,6 +430,19 @@ export class InMemorySessionStore implements SessionStore {
   private requireFacilitator(participant: ParticipantRecord) {
     if (participant.role !== 'facilitator') {
       throw new ApiError(403, 'FACILITATOR_REQUIRED', 'Only the facilitator can do that.')
+    }
+  }
+
+  private requireReportAccess(
+    participant: ParticipantRecord,
+    session: SessionRecord,
+  ) {
+    if (participant.role !== 'facilitator' && session.status !== 'finished') {
+      throw new ApiError(
+        403,
+        'REPORT_FORBIDDEN',
+        'Player reports are available after the facilitator ends the game.',
+      )
     }
   }
 

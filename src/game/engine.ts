@@ -274,6 +274,169 @@ export function moveCar(
   }
 }
 
+export interface CarMove {
+  stage: Stage
+  row: number
+}
+
+export type CarPhase =
+  | 'shipped'
+  | 'cured'
+  | 'curing'
+  | 'queued'
+  | 'ready'
+  | 'awaiting-resources'
+  | 'awaiting-round'
+
+export interface CarStatus {
+  phase: CarPhase
+  resource: Resource | null
+  held: number
+  required: number
+  shortfall: number
+  canMove: boolean
+}
+
+export interface PaintBoothStatus {
+  occupancy: number
+  capacity: number
+  curing: boolean
+  cured: number
+  queued: number
+  acceptsNewCars: boolean
+}
+
+/** Same verdict `moveCar` would give, without performing the move. */
+export function getMoveError(
+  state: GameState,
+  carId: string,
+  toStage: Stage,
+  toRow: number,
+): string | null {
+  const car = state.cars.find((candidate) => candidate.id === carId)
+  if (!car) return 'That car could not be found.'
+  return moveError(state, car, toStage, toRow)
+}
+
+export function getLegalMoves(state: GameState, carId: string | null): CarMove[] {
+  const car = state.cars.find((candidate) => candidate.id === carId)
+  if (!car) return []
+  const nextStage = STAGES[STAGES.indexOf(car.stage) + 1]
+  if (!nextStage) return []
+  const moves: CarMove[] = []
+  for (let row = 0; row < BOARD_ROWS; row += 1) {
+    if (moveError(state, car, nextStage, row) === null) {
+      moves.push({ stage: nextStage, row })
+    }
+  }
+  return moves
+}
+
+export function getPaintBoothStatus(state: GameState): PaintBoothStatus {
+  const inBooth = state.cars.filter((car) => car.stage === 'paint')
+  const cured = inBooth.filter((car) => car.ready).length
+  const curing = state.paintBatchStartedRound !== null
+  return {
+    occupancy: inBooth.length,
+    capacity: PAINT_CAPACITY,
+    curing,
+    cured,
+    queued: inBooth.length - cured,
+    acceptsNewCars: !curing && inBooth.length < PAINT_CAPACITY,
+  }
+}
+
+export function getCarStatus(state: GameState, car: Car): CarStatus {
+  const resource = stageResource(car.stage)
+  const required = resource ? RECIPES[car.model][resource] : 0
+  const held = resource ? car.resources[resource] : 0
+  const shortfall = Math.max(required - held, 0)
+  const canMove = getLegalMoves(state, car.id).length > 0
+
+  const phase: CarPhase = car.stage === 'done'
+    ? 'shipped'
+    : car.stage === 'paint'
+      ? car.ready ? 'cured' : state.paintBatchStartedRound !== null ? 'curing' : 'queued'
+      : shortfall > 0
+        ? 'awaiting-resources'
+        : car.stage !== 'planning' && !car.ready
+          ? 'awaiting-round'
+          : 'ready'
+
+  return { phase, resource, held, required, shortfall, canMove }
+}
+
+const repositionError = (
+  state: GameState,
+  car: Car,
+  toRow: number,
+): string | null => {
+  if (car.stage === 'done') return 'That car is already complete.'
+  if (!Number.isInteger(toRow) || toRow < 0 || toRow >= BOARD_ROWS) {
+    return 'Choose a lane on the factory floor.'
+  }
+  if (toRow === car.row) return 'That car is already in that lane.'
+  const occupied = activeCars(state).some(
+    (candidate) =>
+      candidate.id !== car.id
+      && candidate.stage === car.stage
+      && candidate.row === toRow,
+  )
+  return occupied ? 'That lane is already occupied.' : null
+}
+
+/**
+ * Slides a car to another lane of the station it already occupies, the way a hand moves a
+ * piece on the physical board. Station, materials, and cure timing are deliberately untouched;
+ * only allocation order (which runs top lane down) changes.
+ */
+export function repositionCar(
+  state: GameState,
+  carId: string,
+  toRow: number,
+): ActionResult {
+  const car = state.cars.find((candidate) => candidate.id === carId)
+  if (!car) return { state, error: 'That car could not be found.' }
+
+  const error = repositionError(state, car, toRow)
+  if (error) return { state, error }
+
+  const cars = state.cars.map(cloneCar)
+  cars.find((candidate) => candidate.id === carId)!.row = toRow
+  return { state: { ...state, cars }, error: null }
+}
+
+/** Verdict for either board gesture: a slide within a station, or a step forward. */
+export function getBoardActionError(
+  state: GameState,
+  carId: string,
+  toStage: Stage,
+  toRow: number,
+): string | null {
+  const car = state.cars.find((candidate) => candidate.id === carId)
+  if (!car) return 'That car could not be found.'
+  return toStage === car.stage
+    ? repositionError(state, car, toRow)
+    : moveError(state, car, toStage, toRow)
+}
+
+export function getLegalRepositions(state: GameState, carId: string | null): CarMove[] {
+  const car = state.cars.find((candidate) => candidate.id === carId)
+  if (!car || car.stage === 'done') return []
+  const targets: CarMove[] = []
+  for (let row = 0; row < BOARD_ROWS; row += 1) {
+    if (repositionError(state, car, row) === null) {
+      targets.push({ stage: car.stage, row })
+    }
+  }
+  return targets
+}
+
+/** Every lane the player may drop this car into, in its own station or the next one. */
+export function getLegalBoardTargets(state: GameState, carId: string | null): CarMove[] {
+  return [...getLegalRepositions(state, carId), ...getLegalMoves(state, carId)]
+}
+
 export function allocateResources(state: GameState): GameState {
   const cars = state.cars.map(cloneCar)
   const resources = clonePool(state.resources)

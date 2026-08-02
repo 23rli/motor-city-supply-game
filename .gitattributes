@@ -1,0 +1,4 @@
+# These run on Linux; CRLF would break the shebang and systemd unit parsing.
+*.sh text eol=lf
+deploy/Caddyfile text eol=lf
+deploy/motor-city.service text eol=lf

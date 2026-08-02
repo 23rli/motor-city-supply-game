@@ -12,6 +12,7 @@ export type TeamRole = 'facilitator' | 'player'
 
 export type PlayerCommand =
   | { type: 'move'; carId: string; toStage: Stage; toRow: number }
+  | { type: 'reposition'; carId: string; toRow: number }
   | { type: 'allocate' }
   | { type: 'convert'; spend: ResourcePool; receive: Resource }
   | { type: 'advance' }
@@ -67,6 +68,9 @@ export interface TeamPlayerReport {
   lastSeenAt: string
   scoredThroughRound: number
   penaltyMeasuredAtRound: number
+  currentRound: number
+  stranded: ResourcePool
+  paint: { occupancy: number; curing: boolean; cured: number }
 }
 
 export interface TeamReport {
