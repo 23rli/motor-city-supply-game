@@ -67,9 +67,56 @@ if [[ $PKG == apt ]]; then
     systemctl stop caddy || true
   fi
 else
-  dnf install -y -q postgresql-server caddy tar xz
+  # Amazon Linux 2023 has no "caddy" package and only versioned PostgreSQL.
+  dnf install -y -q tar xz gzip curl ca-certificates
+  dnf install -y -q postgresql16-server postgresql16 \
+    || dnf install -y -q postgresql15-server postgresql15
   [[ -d /var/lib/pgsql/data/base ]] || postgresql-setup --initdb
-  systemctl stop caddy || true
+  if ! command -v caddy >/dev/null 2>&1; then
+    log "Installing Caddy from the official static release"
+    CADDY_VER="$(curl -fsSL https://api.github.com/repos/caddyserver/caddy/releases/latest \
+      | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p' | head -1)"
+    [[ -n $CADDY_VER ]] || { echo "Could not determine the Caddy version." >&2; exit 1; }
+    case "$(uname -m)" in
+      x86_64) CADDY_ARCH="amd64" ;;
+      aarch64 | arm64) CADDY_ARCH="arm64" ;;
+      *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+    esac
+    CWORK="$(mktemp -d)"
+    CBASE="https://github.com/caddyserver/caddy/releases/download/v$CADDY_VER"
+    CFILE="caddy_${CADDY_VER}_linux_${CADDY_ARCH}.tar.gz"
+    curl -fsSL "$CBASE/$CFILE" -o "$CWORK/$CFILE"
+    curl -fsSL "$CBASE/caddy_${CADDY_VER}_checksums.txt" -o "$CWORK/checksums.txt"
+    # Refuse a binary that does not match the published checksum.
+    (cd "$CWORK" && grep " $CFILE\$" checksums.txt | sha256sum -c -)
+    tar -xzf "$CWORK/$CFILE" -C "$CWORK" caddy
+    install -m 755 "$CWORK/caddy" /usr/local/bin/caddy
+    rm -rf "$CWORK"
+    id -u caddy >/dev/null 2>&1 \
+      || useradd --system --home /var/lib/caddy --create-home --shell /usr/sbin/nologin caddy
+    mkdir -p /etc/caddy
+    cat > /etc/systemd/system/caddy.service <<'UNIT'
+[Unit]
+Description=Caddy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=caddy
+Group=caddy
+ExecStart=/usr/local/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --force
+Restart=on-abnormal
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload
+  fi
 fi
 
 systemctl enable --now postgresql
@@ -122,6 +169,16 @@ SQL
 fi
 if [[ "$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")" != "1" ]]; then
   sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+fi
+
+# RHEL-family defaults to "ident" on loopback, which refuses the password the app uses.
+PGHBA="$(sudo -u postgres psql -tAc 'SHOW hba_file')"
+if grep -qE '^host[[:space:]]+all[[:space:]]+all[[:space:]]+(127\.0\.0\.1/32|::1/128)[[:space:]]+(ident|peer|trust)' "$PGHBA"; then
+  log "Switching loopback authentication to scram-sha-256"
+  cp -a "$PGHBA" "$PGHBA.bak.$(date +%s)"
+  sed -i -E 's|^(host[[:space:]]+all[[:space:]]+all[[:space:]]+127\.0\.0\.1/32[[:space:]]+)(ident\|peer\|trust)|\1scram-sha-256|' "$PGHBA"
+  sed -i -E 's|^(host[[:space:]]+all[[:space:]]+all[[:space:]]+::1/128[[:space:]]+)(ident\|peer\|trust)|\1scram-sha-256|' "$PGHBA"
+  systemctl reload postgresql
 fi
 
 log "Writing $ENV_FILE (root-readable only)"
