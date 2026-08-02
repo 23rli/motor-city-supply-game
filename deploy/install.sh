@@ -93,10 +93,21 @@ else
     CWORK="$(mktemp -d)"
     CBASE="https://github.com/caddyserver/caddy/releases/download/v$CADDY_VER"
     CFILE="caddy_${CADDY_VER}_linux_${CADDY_ARCH}.tar.gz"
+    echo "  version $CADDY_VER, asset $CFILE"
     curl -fsSL "$CBASE/$CFILE" -o "$CWORK/$CFILE"
     curl -fsSL "$CBASE/caddy_${CADDY_VER}_checksums.txt" -o "$CWORK/checksums.txt"
-    # Refuse a binary that does not match the published checksum.
-    (cd "$CWORK" && grep " $CFILE\$" checksums.txt | sha256sum -c -)
+    # Caddy publishes SHA-512 in a file named "checksums.txt", so verify with sha512sum.
+    EXPECTED="$(awk -v f="$CFILE" '$2 == f || $2 == "*" f { print $1 }' "$CWORK/checksums.txt" | head -1)"
+    if [[ -z $EXPECTED ]]; then
+      echo "  No checksum listed for $CFILE. The checksums file starts:" >&2
+      head -5 "$CWORK/checksums.txt" >&2
+      exit 1
+    fi
+    ACTUAL="$(sha512sum "$CWORK/$CFILE" | awk '{ print $1 }')"
+    if [[ $EXPECTED != "$ACTUAL" ]]; then
+      echo "  Checksum mismatch for $CFILE - refusing to install." >&2
+      exit 1
+    fi
     tar -xzf "$CWORK/$CFILE" -C "$CWORK" caddy
     install -m 755 "$CWORK/caddy" /usr/local/bin/caddy
     rm -rf "$CWORK"
@@ -146,8 +157,17 @@ if [[ ! -x $NODE_DIR/bin/node ]]; then
   TARBALL="$(grep -o "node-v22\.[0-9.]*-$NODE_ARCH\.tar\.xz" "$WORK/SHASUMS256.txt" | head -1)"
   [[ -n $TARBALL ]] || { echo "Could not determine the Node.js tarball name." >&2; exit 1; }
   curl -fsSL "$NODE_BASE/$TARBALL" -o "$WORK/$TARBALL"
-  # Refuse to install a runtime that does not match the published checksum.
-  (cd "$WORK" && grep " $TARBALL\$" SHASUMS256.txt | sha256sum -c -)
+  # Node publishes SHA-256 here; match on fields so spacing cannot break it.
+  NODE_EXPECTED="$(awk -v f="$TARBALL" '$2 == f || $2 == "*" f { print $1 }' "$WORK/SHASUMS256.txt" | head -1)"
+  if [[ -z $NODE_EXPECTED ]]; then
+    echo "No checksum listed for $TARBALL." >&2
+    exit 1
+  fi
+  NODE_ACTUAL="$(sha256sum "$WORK/$TARBALL" | awk '{ print $1 }')"
+  if [[ $NODE_EXPECTED != "$NODE_ACTUAL" ]]; then
+    echo "Checksum mismatch for $TARBALL - refusing to install." >&2
+    exit 1
+  fi
   mkdir -p "$NODE_DIR"
   tar -xJf "$WORK/$TARBALL" -C "$NODE_DIR" --strip-components=1
   rm -rf "$WORK"
