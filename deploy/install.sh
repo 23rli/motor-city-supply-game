@@ -229,8 +229,6 @@ install -m 644 "$HERE/motor-city.service" /etc/systemd/system/motor-city.service
 systemctl daemon-reload
 
 log "Configuring TLS on :443 only, leaving :80 to the current game"
-mkdir -p /var/log/caddy
-chown caddy:caddy /var/log/caddy 2>/dev/null || true
 sed -e "s/__HOSTNAME__/$HOSTNAME_ARG/g" -e "s/__EMAIL__/$EMAIL_ARG/g" \
   "$HERE/Caddyfile" > /etc/caddy/Caddyfile
 caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
