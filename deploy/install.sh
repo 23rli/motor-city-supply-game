@@ -50,6 +50,13 @@ if ss -ltn "sport = :443" | grep -q LISTEN; then
   exit 1
 fi
 
+FREE_MB="$(df -Pm / | awk 'NR==2 {print $4}')"
+if (( FREE_MB < 3000 )); then
+  echo "  Only ${FREE_MB}MB free on /. This needs roughly 3GB. Stopping before anything changes." >&2
+  exit 1
+fi
+echo "  ${FREE_MB}MB free on /, :443 is unused. Safe to continue."
+
 log "Installing PostgreSQL and Caddy"
 if [[ $PKG == apt ]]; then
   export DEBIAN_FRONTEND=noninteractive
