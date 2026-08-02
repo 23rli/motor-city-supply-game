@@ -75,7 +75,8 @@ if [[ $PKG == apt ]]; then
   fi
 else
   # Amazon Linux 2023 has no "caddy" package and only versioned PostgreSQL.
-  dnf install -y -q tar xz gzip curl ca-certificates
+  # curl is deliberately absent here: curl-minimal already provides it and the two conflict.
+  dnf install -y -q tar xz gzip ca-certificates
   dnf install -y -q postgresql16-server postgresql16 \
     || dnf install -y -q postgresql15-server postgresql15
   [[ -d /var/lib/pgsql/data/base ]] || postgresql-setup --initdb
