@@ -23,7 +23,7 @@ interface TeamSessionProps {
   resumed?: boolean
   initialSnapshot?: TeamSessionSnapshot | null
   onExit: () => void
-  onInvalid: () => void
+  onInvalid: (reason?: string) => void
 }
 
 export function TeamSession({
@@ -90,7 +90,7 @@ export function TeamSession({
       }
     } catch (caught) {
       if (caught instanceof ApiClientError && caught.status === 401) {
-        onInvalid()
+        onInvalid(caught.code.startsWith('SESSION_') ? caught.message : undefined)
         return false
       }
       setError(caught instanceof ApiClientError ? caught.message : 'The session could not be synchronized.')
@@ -218,6 +218,23 @@ export function TeamSession({
     }
   }
 
+  const removePlayer = async (player: { id: string; name: string }) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await teamApi.removeParticipant(snapshot.game.id, player.id)
+      await load()
+    } catch (caught) {
+      setError(
+        caught instanceof ApiClientError
+          ? caught.message
+          : `${player.name} could not be removed.`,
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="team-room">
       <header className="room-header">
@@ -336,6 +353,7 @@ export function TeamSession({
             code={snapshot.game.code}
             finished={snapshot.game.status === 'finished'}
             onReadmit={(player) => void readmitPlayer(player)}
+            onRemove={(player) => void removePlayer(player)}
             readmitted={readmitted}
             onDismissReadmit={() => setReadmitted(null)}
           />

@@ -17,6 +17,7 @@ import {
   hashSecret,
   isSessionExpired,
   issueSessionSecrets,
+  SESSION_TTL_MS,
 } from './session-security'
 
 export type SessionStatus = 'waiting' | 'active' | 'finished'
@@ -78,6 +79,34 @@ export interface ReadmittedParticipant {
   recoveryCode: string
 }
 
+/** Why a token stopped working, so the player can be told instead of silently dumped out. */
+export type SupersededReason = 'rejoined' | 'removed'
+
+export const SUPERSEDED_MESSAGES: Record<SupersededReason, string> = {
+  rejoined: 'You opened this session somewhere else, so this screen was signed out.',
+  removed: 'The facilitator removed you from this session.',
+}
+
+/** Best-effort UX only - a restart just falls back to the generic expiry message. */
+export class SupersededTokens {
+  private readonly entries = new Map<string, { reason: SupersededReason, at: number }>()
+
+  note(tokenHash: string, reason: SupersededReason) {
+    this.entries.set(tokenHash, { reason, at: Date.now() })
+  }
+
+  reasonFor(tokenHash: string) {
+    return this.entries.get(tokenHash)?.reason
+  }
+
+  prune(olderThanMs: number) {
+    const cutoff = Date.now() - olderThanMs
+    for (const [hash, entry] of this.entries) {
+      if (entry.at < cutoff) this.entries.delete(hash)
+    }
+  }
+}
+
 export interface SessionStore {
   createSession(input: CreateSessionInput): Promise<IssuedSession>
   joinSession(input: JoinSessionInput): Promise<IssuedSession>
@@ -93,6 +122,11 @@ export interface SessionStore {
     gameId: string,
     participantId: string,
   ): Promise<ReadmittedParticipant>
+  removeParticipant(
+    token: string,
+    gameId: string,
+    participantId: string,
+  ): Promise<{ participantId: string, name: string }>
   cleanupExpiredData?(): Promise<void>
   close?(): Promise<void>
 }
@@ -118,6 +152,7 @@ export class InMemorySessionStore implements SessionStore {
   private readonly sessionIdsByCode = new Map<string, string>()
   private readonly participants = new Map<string, ParticipantRecord>()
   private readonly participantIdsByTokenHash = new Map<string, string>()
+  private readonly superseded = new SupersededTokens()
   private readonly receipts = new Map<string, CommandReceipt>()
 
   async createSession(input: CreateSessionInput): Promise<IssuedSession> {
@@ -235,6 +270,7 @@ export class InMemorySessionStore implements SessionStore {
     }
 
     this.participantIdsByTokenHash.delete(participant.tokenHash)
+    this.superseded.note(participant.tokenHash, 'rejoined')
     const secrets = issueSessionSecrets()
     participant.tokenHash = hashSecret(secrets.token)
     participant.recoveryHash = hashSecret(secrets.recoveryCode)
@@ -274,6 +310,33 @@ export class InMemorySessionStore implements SessionStore {
     const { recoveryCode } = issueSessionSecrets()
     target.recoveryHash = hashSecret(recoveryCode)
     return { participantId: target.id, name: target.name, recoveryCode }
+  }
+
+  /** Removes a player mid-game; their screen is told why rather than silently signed out. */
+  async removeParticipant(token: string, gameId: string, participantId: string) {
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
+
+    const target = this.participants.get(participantId)
+    if (!target || target.gameId !== session.id) {
+      throw new ApiError(
+        404,
+        'PARTICIPANT_NOT_FOUND',
+        'That player is not in this session.',
+      )
+    }
+    if (target.id === participant.id) {
+      throw new ApiError(
+        409,
+        'CANNOT_REMOVE_SELF',
+        'You cannot remove yourself from the session.',
+      )
+    }
+
+    target.revokedAt = now()
+    this.participantIdsByTokenHash.delete(target.tokenHash)
+    this.superseded.note(target.tokenHash, 'removed')
+    return { participantId: target.id, name: target.name }
   }
 
   async getSession(token: string) {
@@ -398,12 +461,18 @@ export class InMemorySessionStore implements SessionStore {
     for (const [key, receipt] of this.receipts) {
       if (receipt.createdAt < receiptCutoff) this.receipts.delete(key)
     }
+    this.superseded.prune(SESSION_TTL_MS)
   }
 
   private authenticate(token: string) {
-    const participantId = this.participantIdsByTokenHash.get(hashSecret(token))
+    const tokenHash = hashSecret(token)
+    const participantId = this.participantIdsByTokenHash.get(tokenHash)
     const participant = participantId ? this.participants.get(participantId) : undefined
     if (!participant) {
+      const reason = this.superseded.reasonFor(tokenHash)
+      if (reason) {
+        throw new ApiError(401, `SESSION_${reason.toUpperCase()}`, SUPERSEDED_MESSAGES[reason])
+      }
       throw new ApiError(401, 'INVALID_SESSION', 'The session token is missing or invalid.')
     }
     if (participant.revokedAt || isSessionExpired(participant.tokenExpiresAt)) {

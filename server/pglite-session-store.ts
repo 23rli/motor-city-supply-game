@@ -23,6 +23,7 @@ import { calculatePlayerReport } from './report'
 import {
   hashSecret,
   issueSessionSecrets,
+  SESSION_TTL_MS,
 } from './session-security'
 import {
   ApiError,
@@ -30,6 +31,8 @@ import {
   type PlayerCommandResult,
   type SessionStatus,
   type SessionStore,
+  SUPERSEDED_MESSAGES,
+  SupersededTokens,
 } from './session-store-core'
 
 interface GameRow {
@@ -94,6 +97,8 @@ const isUniqueViolation = (error: unknown) =>
   && error.code === '23505'
 
 export class SqlSessionStore implements SessionStore {
+  private readonly superseded = new SupersededTokens()
+
   private constructor(private readonly client: SqlClient) {}
 
   static async create(
@@ -270,6 +275,8 @@ export class SqlSessionStore implements SessionStore {
       }
       const secrets = issueSessionSecrets()
       const timestamp = now()
+      // Remember the retired token so the old screen can say why it was signed out.
+      this.superseded.note(row.token_hash, 'rejoined')
       await tx.query(
         `UPDATE participants
          SET token_hash = $1, recovery_hash = $2, token_expires_at = $3,
@@ -507,6 +514,7 @@ export class SqlSessionStore implements SessionStore {
       `DELETE FROM idempotency_receipts
        WHERE created_at < NOW() - INTERVAL '24 hours'`,
     )
+    this.superseded.prune(SESSION_TTL_MS)
   }
 
   private async authenticate(
@@ -540,7 +548,13 @@ export class SqlSessionStore implements SessionStore {
       [hashSecret(token)],
     )
     const row = result.rows[0]
-    if (!row) throw new ApiError(401, 'INVALID_SESSION', 'The session token is missing or invalid.')
+    if (!row) {
+      const reason = this.superseded.reasonFor(hashSecret(token))
+      if (reason) {
+        throw new ApiError(401, `SESSION_${reason.toUpperCase()}`, SUPERSEDED_MESSAGES[reason])
+      }
+      throw new ApiError(401, 'INVALID_SESSION', 'The session token is missing or invalid.')
+    }
     const game = this.gameFromAuthRow(row)
     return { participant: row as ParticipantRow, game }
   }
@@ -610,6 +624,42 @@ export class SqlSessionStore implements SessionStore {
         [hashSecret(recoveryCode), target.id],
       )
       return { participantId: target.id, name: target.name, recoveryCode }
+    })
+  }
+
+  /** Removes a player mid-game; their screen is told why rather than silently signed out. */
+  async removeParticipant(token: string, gameId: string, participantId: string) {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token)
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
+
+      const result = await tx.query<ParticipantRow>(
+        `SELECT * FROM participants WHERE id = $1 AND game_id = $2 FOR UPDATE`,
+        [participantId, gameId],
+      )
+      const target = result.rows[0]
+      if (!target) {
+        throw new ApiError(
+          404,
+          'PARTICIPANT_NOT_FOUND',
+          'That player is not in this session.',
+        )
+      }
+      if (target.id === participant.id) {
+        throw new ApiError(
+          409,
+          'CANNOT_REMOVE_SELF',
+          'You cannot remove yourself from the session.',
+        )
+      }
+
+      await tx.query(
+        `UPDATE participants SET revoked_at = $1 WHERE id = $2`,
+        [now(), target.id],
+      )
+      this.superseded.note(target.token_hash, 'removed')
+      return { participantId: target.id, name: target.name }
     })
   }
 

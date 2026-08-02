@@ -379,6 +379,81 @@ describe('multiplayer API', () => {
     expect(crossSession.statusCode).toBe(403)
   })
 
+  it('lets only the facilitator remove a player, and never themselves', async () => {
+    const app = makeApp()
+    const created = await createSession(app)
+    const player = await joinSession(app, created.game.code, 'Rowan')
+    const other = await joinSession(app, created.game.code, 'Sasha')
+
+    const asPlayer = await app.inject({
+      method: 'DELETE',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}`,
+      headers: auth(other.cookie),
+    })
+    expect(asPlayer.statusCode).toBe(403)
+    expect(asPlayer.json().error.code).toBe('FACILITATOR_REQUIRED')
+
+    const self = await app.inject({
+      method: 'DELETE',
+      url: `/api/games/${created.game.id}/participants/${created.participant.id}`,
+      headers: auth(created.cookie),
+    })
+    expect(self.statusCode).toBe(409)
+    expect(self.json().error.code).toBe('CANNOT_REMOVE_SELF')
+
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}`,
+      headers: auth(created.cookie),
+    })
+    expect(removed.statusCode).toBe(200)
+    expect(removed.json()).toMatchObject({ name: 'Rowan' })
+
+    // The removed player is told what happened rather than silently signed out.
+    const afterRemoval = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: auth(player.cookie),
+    })
+    expect(afterRemoval.statusCode).toBe(401)
+    expect(afterRemoval.json().error.code).toBe('SESSION_REMOVED')
+    expect(afterRemoval.json().error.message).toContain('removed you')
+
+    // Everyone else carries on.
+    const bystander = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: auth(other.cookie),
+    })
+    expect(bystander.statusCode).toBe(200)
+  })
+
+  it('tells a player their screen was signed out because they continued elsewhere', async () => {
+    const app = makeApp()
+    const created = await createSession(app)
+    const player = await joinSession(app, created.game.code, 'Rowan')
+
+    const rejoined = await app.inject({
+      method: 'POST',
+      url: '/api/games/rejoin',
+      payload: {
+        code: created.game.code,
+        playerName: 'Rowan',
+        recoveryCode: player.recoveryCode,
+      },
+    })
+    expect(rejoined.statusCode).toBe(200)
+
+    const abandoned = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: auth(player.cookie),
+    })
+    expect(abandoned.statusCode).toBe(401)
+    expect(abandoned.json().error.code).toBe('SESSION_REJOINED')
+    expect(abandoned.json().error.message).toContain('somewhere else')
+  })
+
   it('rotates recovery credentials and revokes browser sessions', async () => {
     const app = makeApp()
     const created = await createSession(app)

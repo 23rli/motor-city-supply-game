@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Download, KeyRound, Package, Sparkles } from 'lucide-react'
+import { AlertTriangle, Check, Download, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
 import { RESOURCES } from '../game/types'
 import { STALL_AFTER_MS, buildCohortCsv, summarizeCohort } from '../team/cohort'
 import type { TeamPlayerReport } from '../team/types'
@@ -12,6 +12,7 @@ interface CohortBoardProps {
   code: string
   finished: boolean
   onReadmit: (player: TeamPlayerReport) => void
+  onRemove: (player: TeamPlayerReport) => void
   readmitted: { name: string; recoveryCode: string } | null
   onDismissReadmit: () => void
 }
@@ -21,10 +22,12 @@ export function CohortBoard({
   code,
   finished,
   onReadmit,
+  onRemove,
   readmitted,
   onDismissReadmit,
 }: CohortBoardProps) {
   const [now, setNow] = useState(() => Date.now())
+  const [confirming, setConfirming] = useState<string | null>(null)
   const summary = summarizeCohort(players, now)
 
   // Without its own tick, a board that goes quiet after this mounted would never be flagged.
@@ -163,6 +166,39 @@ export function CohortBoard({
               >
                 <KeyRound size={14} aria-hidden="true" /> New code for {player.name}
               </button>
+
+              {/* Two steps, because Kahoot facilitators report kicking the wrong student by accident. */}
+              {confirming === player.id ? (
+                <span className="cohort-confirm">
+                  <button
+                    className="button button-danger cohort-action"
+                    type="button"
+                    disabled={finished}
+                    onClick={() => {
+                      setConfirming(null)
+                      onRemove(player)
+                    }}
+                  >
+                    <UserMinus size={14} aria-hidden="true" /> Remove {player.name}
+                  </button>
+                  <button
+                    className="button button-secondary cohort-action"
+                    type="button"
+                    onClick={() => setConfirming(null)}
+                  >
+                    Keep them
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="button button-quiet cohort-action"
+                  type="button"
+                  disabled={finished}
+                  onClick={() => setConfirming(player.id)}
+                >
+                  <UserMinus size={14} aria-hidden="true" /> Remove
+                </button>
+              )}
             </article>
           )
         })}

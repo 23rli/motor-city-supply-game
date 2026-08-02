@@ -273,6 +273,19 @@ export function buildApp(
     )
   })
 
+  // Lets a facilitator remove someone who joined by mistake or under the wrong name.
+  app.delete('/api/games/:gameId/participants/:participantId', async (request) => {
+    const { gameId, participantId } = parse(
+      participantParamsSchema,
+      request.params,
+    )
+    return store.removeParticipant(
+      sessionToken(request),
+      gameId,
+      participantId,
+    )
+  })
+
   app.setNotFoundHandler((request, reply) => {
     if (
       options.staticRoot

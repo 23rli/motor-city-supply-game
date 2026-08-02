@@ -17,6 +17,7 @@ import type { TeamCredentials } from './types'
 
 interface TeamLauncherProps {
   savedTeamSession: boolean
+  signedOutReason?: string | null
   onSolo: () => void
   onTeam: (credentials: TeamCredentials) => void
   onResume: () => void
@@ -25,6 +26,7 @@ interface TeamLauncherProps {
 
 export function TeamLauncher({
   savedTeamSession,
+  signedOutReason,
   onSolo,
   onTeam,
   onResume,
@@ -150,6 +152,9 @@ export function TeamLauncher({
               </>
             )}
 
+            {signedOutReason && !error && (
+              <p className="form-notice" role="status">{signedOutReason}</p>
+            )}
             {error && <p className="form-error" role="alert">{error}</p>}
 
             <button className="button button-primary team-submit" type="submit" disabled={busy || (teamAction === 'create' && models.length === 0)}>

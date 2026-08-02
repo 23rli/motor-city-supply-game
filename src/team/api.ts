@@ -134,6 +134,13 @@ export const teamApi = {
     )
   },
 
+  removeParticipant(gameId: string, participantId: string) {
+    return request<{ participantId: string; name: string }>(
+      `/api/games/${gameId}/participants/${participantId}`,
+      { method: 'DELETE' },
+    )
+  },
+
   sendCommand(
     stateVersion: number,
     command: PlayerCommand,

@@ -28,6 +28,7 @@ export default function RootApp() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null)
   const [resumed, setResumed] = useState(false)
   const [bootSnapshot, setBootSnapshot] = useState<TeamSessionSnapshot | null>(null)
+  const [signedOutReason, setSignedOutReason] = useState<string | null>(null)
 
   const openTeam = (credentials: TeamCredentials) => {
     localStorage.setItem(TEAM_SESSION_HINT_KEY, '1')
@@ -35,15 +36,17 @@ export default function RootApp() {
     setHasTeamSession(true)
     setRecoveryCode(credentials.recoveryCode)
     setResumed(false)
+    setSignedOutReason(null)
     setScreen('team')
   }
 
-  const clearTeam = useCallback(() => {
+  const clearTeam = useCallback((reason?: string) => {
     localStorage.removeItem(TEAM_SESSION_HINT_KEY)
     localStorage.removeItem(STAY_OUT_KEY)
     setHasTeamSession(false)
     setRecoveryCode(null)
     setBootSnapshot(null)
+    setSignedOutReason(reason ?? null)
     setScreen('launcher')
   }, [])
 
@@ -139,6 +142,7 @@ export default function RootApp() {
   return (
     <TeamLauncher
       savedTeamSession={hasTeamSession}
+      signedOutReason={signedOutReason}
       onSolo={() => setScreen('solo')}
       onTeam={openTeam}
       onResume={resumeTeam}

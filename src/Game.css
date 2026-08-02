@@ -510,6 +510,7 @@ body.board-dragging, body.board-dragging * { user-select: none; }
 .select-field select { width: 100%; min-height: 42px; padding: 0 10px; color: #17201e; background: #f8f9f8; border: 1px solid #b8c3bf; border-radius: 4px; }
 .select-field { display: grid; }
 .form-error { margin: 0; padding: 10px 12px; color: #8f2921; background: #fbeae7; border-left: 3px solid #b83b31; font-size: 13px; }
+.form-notice { margin: 0; padding: 10px 12px; color: #1f4c46; background: #e6f2ef; border-left: 3px solid #2f7d72; font-size: 13px; }
 
 .new-run-form { display: grid; gap: 22px; }
 .model-switches { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; border: 0; }

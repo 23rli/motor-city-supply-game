@@ -141,6 +141,7 @@
 .signal-quiet { color: #a2571f; font-weight: 700; }
 .cohort-live { margin: 0; display: inline-flex; align-items: center; gap: 5px; color: #167565; font-size: 11px; font-weight: 700; }
 .cohort-action { width: 100%; min-height: 34px; font-size: 12px; }
+.cohort-confirm { display: grid; gap: 6px; }
 
 .readmit-banner { margin-top: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; color: #f4faf8; background: #12766a; border-radius: 6px; }
 .readmit-banner > div { display: grid; gap: 3px; }
