@@ -7,6 +7,7 @@ import {
   Clipboard,
   Factory,
   Flag,
+  KeyRound,
   Minus,
   Play,
   Radio,
@@ -277,22 +278,26 @@ export function TeamSession({
         )}
 
         {recoveryCode && (
-          <section className="recovery-banner" aria-label="Session recovery code">
-            <div>
-              <p>Save once</p>
+          <details className="recovery-banner" aria-label="Session recovery code">
+            <summary>
+              <KeyRound size={15} aria-hidden="true" />
+              <span>Recovery code</span>
+              <em>keeps your seat if this device dies</em>
+            </summary>
+            <div className="recovery-body">
               <strong>{recoveryCode}</strong>
               <span>Use this with the join code and your name on another device.</span>
+              <button
+                className="icon-button"
+                type="button"
+                title="Copy recovery code"
+                aria-label="Copy recovery code"
+                onClick={() => void navigator.clipboard.writeText(recoveryCode)}
+              >
+                <Clipboard size={19} />
+              </button>
             </div>
-            <button
-              className="icon-button"
-              type="button"
-              title="Copy recovery code"
-              aria-label="Copy recovery code"
-              onClick={() => void navigator.clipboard.writeText(recoveryCode)}
-            >
-              <Clipboard size={19} />
-            </button>
-          </section>
+          </details>
         )}
 
         {snapshot.participant.role === 'player' && snapshot.game.status === 'waiting' && (
