@@ -33,6 +33,7 @@ export const createSessionSchema = z.object({
 export const joinSessionSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z2-9]{6}$/),
   playerName: nameSchema,
+  identifier: z.string().trim().max(120).optional(),
 }).strict()
 
 export const rejoinSessionSchema = z.object({

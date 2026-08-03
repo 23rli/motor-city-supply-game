@@ -10,6 +10,7 @@ const player = (
 ): TeamPlayerReport => ({
   id: `id-${name}`,
   name,
+  identifier: null,
   round: 4,
   stateVersion: 1,
   completed: { blue: 1, green: 0, red: 0, yellow: 0 },
@@ -96,5 +97,18 @@ describe('cohort export', () => {
 
     expect(csv).toContain('"Ada ""Ace"", Lovelace"')
     expect(csv.split('\r\n')).toHaveLength(2)
+  })
+
+  it('carries the identifier so results can be matched to a real person', () => {
+    const csv = buildCohortCsv([
+      player('Ada', { identifier: 'alovelace@wustl.edu' }),
+      player('Bo'),
+    ])
+    const lines = csv.split('\r\n')
+
+    expect(lines[0]).toContain('"Identifier"')
+    expect(lines[1]).toContain('"alovelace@wustl.edu"')
+    // Nobody is forced to give one, and a blank must not shift the other columns.
+    expect(lines[2].split(',')[1]).toBe('""')
   })
 })

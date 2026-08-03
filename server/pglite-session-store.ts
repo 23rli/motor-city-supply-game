@@ -53,6 +53,7 @@ interface ParticipantRow {
   game_id: string
   name: string
   normalized_name: string
+  identifier: string | null
   role: ParticipantRole
   token_hash: string
   recovery_hash: string
@@ -145,6 +146,7 @@ export class SqlSessionStore implements SessionStore {
       game_id: gameId,
       name: input.facilitatorName,
       normalized_name: normalizeName(input.facilitatorName),
+      identifier: null,
       role: 'facilitator',
       token_hash: hashSecret(secrets.token),
       recovery_hash: hashSecret(secrets.recoveryCode),
@@ -211,6 +213,7 @@ export class SqlSessionStore implements SessionStore {
         game_id: game.id,
         name: input.playerName,
         normalized_name: normalizeName(input.playerName),
+        identifier: input.identifier?.trim() || null,
         role: 'player',
         token_hash: hashSecret(secrets.token),
         recovery_hash: hashSecret(secrets.recoveryCode),
@@ -577,14 +580,15 @@ export class SqlSessionStore implements SessionStore {
   private async insertParticipant(client: SqlExecutor, participant: ParticipantRow) {
     await client.query(
       `INSERT INTO participants
-        (id, game_id, name, normalized_name, role, token_hash, recovery_hash,
+        (id, game_id, name, normalized_name, identifier, role, token_hash, recovery_hash,
          token_expires_at, revoked_at, state, state_version, joined_at, last_seen_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)`,
       [
         participant.id,
         participant.game_id,
         participant.name,
         participant.normalized_name,
+        participant.identifier,
         participant.role,
         participant.token_hash,
         participant.recovery_hash,
@@ -682,6 +686,7 @@ export class SqlSessionStore implements SessionStore {
         return {
           id: participant.id,
           name: participant.name,
+          identifier: participant.identifier ?? null,
           ...metrics,
           stateVersion: participant.state_version,
           lastSeenAt: asIso(participant.last_seen_at),

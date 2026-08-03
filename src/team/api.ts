@@ -80,7 +80,7 @@ export const teamApi = {
     })
   },
 
-  joinGame(input: { code: string; playerName: string }) {
+  joinGame(input: { code: string; playerName: string; identifier?: string }) {
     return request<TeamCredentials>('/api/games/join', {
       method: 'POST',
       body: JSON.stringify(input),

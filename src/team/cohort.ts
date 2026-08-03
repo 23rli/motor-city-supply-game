@@ -78,6 +78,7 @@ export function buildCohortCsv(players: TeamPlayerReport[]): string {
   const rows = [
     [
       'Player',
+      'Identifier',
       'Current round',
       'Scored through round',
       'WIP measured at round',
@@ -96,6 +97,7 @@ export function buildCohortCsv(players: TeamPlayerReport[]): string {
     ],
     ...players.map((player) => [
       player.name,
+      player.identifier ?? '',
       player.currentRound,
       player.scoredThroughRound,
       player.penaltyMeasuredAtRound,

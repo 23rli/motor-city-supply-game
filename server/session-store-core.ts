@@ -41,6 +41,7 @@ interface ParticipantRecord {
   gameId: string
   name: string
   normalizedName: string
+  identifier: string | null
   role: ParticipantRole
   tokenHash: string
   recoveryHash: string
@@ -185,6 +186,7 @@ export class InMemorySessionStore implements SessionStore {
       gameId,
       name: input.facilitatorName,
       normalizedName: normalizeName(input.facilitatorName),
+      identifier: null,
       role: 'facilitator',
       tokenHash: hashSecret(secrets.token),
       recoveryHash: hashSecret(secrets.recoveryCode),
@@ -231,6 +233,7 @@ export class InMemorySessionStore implements SessionStore {
       gameId: session.id,
       name: input.playerName,
       normalizedName,
+      identifier: input.identifier?.trim() || null,
       role: 'player',
       tokenHash: hashSecret(secrets.token),
       recoveryHash: hashSecret(secrets.recoveryCode),
@@ -587,6 +590,7 @@ export class InMemorySessionStore implements SessionStore {
         return {
           id: participant.id,
           name: participant.name,
+          identifier: participant.identifier,
           ...metrics,
           stateVersion: participant.stateVersion,
           lastSeenAt: participant.lastSeenAt,

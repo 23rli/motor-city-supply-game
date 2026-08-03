@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS participants (
   revoked_at timestamptz,
   state jsonb,
   state_version integer NOT NULL DEFAULT 0 CHECK (state_version >= 0),
+  identifier varchar(120),
   joined_at timestamptz NOT NULL,
   last_seen_at timestamptz NOT NULL,
   UNIQUE (game_id, normalized_name)
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS participants (
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS recovery_hash char(64);
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS token_expires_at timestamptz;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS identifier varchar(120);
 
 CREATE INDEX IF NOT EXISTS participants_game_id_idx
   ON participants(game_id);

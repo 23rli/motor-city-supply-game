@@ -35,6 +35,7 @@ export function TeamLauncher({
   const [teamAction, setTeamAction] = useState<'join' | 'rejoin' | 'create'>('join')
   const [facilitatorName, setFacilitatorName] = useState('')
   const [playerName, setPlayerName] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [code, setCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [models, setModels] = useState<CarModel[]>([...CAR_MODELS])
@@ -65,6 +66,7 @@ export function TeamLauncher({
       void run(() => teamApi.joinGame({
         code: code.trim().toUpperCase(),
         playerName,
+        identifier: identifier.trim() || undefined,
       }))
       return
     }
@@ -128,6 +130,18 @@ export function TeamLauncher({
               <>
                 <label><span>Join code</span><input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC234" autoComplete="off" required /></label>
                 <label><span>{teamAction === 'rejoin' ? 'Participant name' : 'Player name'}</span><input value={playerName} onChange={(event) => setPlayerName(event.target.value)} maxLength={80} placeholder="Your name" required /></label>
+                {teamAction === 'join' && (
+                  <label>
+                    <span>Student ID or email <em>optional</em></span>
+                    <input
+                      value={identifier}
+                      onChange={(event) => setIdentifier(event.target.value)}
+                      maxLength={120}
+                      placeholder="So your instructor can match your results"
+                      autoComplete="off"
+                    />
+                  </label>
+                )}
                 {teamAction === 'rejoin' && (
                   <label><span>Recovery code</span><input value={recoveryCode} onChange={(event) => setRecoveryCode(event.target.value)} maxLength={128} placeholder="Saved recovery code" required /></label>
                 )}

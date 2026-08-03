@@ -58,6 +58,7 @@ export interface TeamCredentials {
 export interface TeamPlayerReport {
   id: string
   name: string
+  identifier: string | null
   round: number
   stateVersion: number
   completed: ModelValues
