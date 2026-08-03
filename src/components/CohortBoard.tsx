@@ -145,19 +145,20 @@ export function CohortBoard({
         </div>
       </dl>
 
-      <div className="stranded-panel">
-        <p>
+      <details className="stranded-panel">
+        <summary>
+          <Package size={15} aria-hidden="true" />
           Material nobody could use
-          <span>Totalled across every board right now</span>
-        </p>
-        <div>
+          <em>{totalOf(summary.stranded)} across every board</em>
+        </summary>
+        <div className="stranded-body">
           {RESOURCES.map((resource) => (
             <span className={`stranded-chip material-${resource}`} key={resource}>
               <strong>{summary.stranded[resource]}</strong> {resource}
             </span>
           ))}
         </div>
-      </div>
+      </details>
 
       <div className="cohort-grid">
         {ordered.map((player) => {

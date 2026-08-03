@@ -9,6 +9,7 @@ import {
   Flag,
   KeyRound,
   Minus,
+  MonitorPlay,
   Play,
   Radio,
   Sparkles,
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react'
 import MotorCityApp from '../MotorCityApp'
 import { CohortBoard } from '../components/CohortBoard'
+import { PresenterView } from '../components/PresenterView'
 import { ApiClientError, teamApi } from './api'
 import { podium, rankPlayers, rankSnapshot, sortLeaderboard, type SortDirection, type SortKey } from './leaderboard'
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
@@ -61,6 +63,7 @@ export function TeamSession({
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [copied, setCopied] = useState(false)
   const [ending, setEnding] = useState(false)
+  const [presenting, setPresenting] = useState(false)
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const leaderboard = useMemo(
@@ -278,6 +281,21 @@ export function TeamSession({
 
   return (
     <div className="team-room">
+      {presenting && (
+        <PresenterView
+          code={snapshot.game.code}
+          joinAddress={joinAddress}
+          status={snapshot.game.status}
+          roster={snapshot.roster}
+          rounds={report?.players.length
+            ? {
+              low: Math.min(...report.players.map((player) => player.currentRound)),
+              high: Math.max(...report.players.map((player) => player.currentRound)),
+            }
+            : null}
+          onClose={() => setPresenting(false)}
+        />
+      )}
       <header className="room-header">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true"><Factory size={22} /></span>
@@ -300,18 +318,29 @@ export function TeamSession({
               </p>
             )}
           </div>
-          <button
-            className="button button-quiet room-copy"
-            type="button"
-            onClick={() => {
-              void navigator.clipboard.writeText(`${joinAddress} — code ${snapshot.game.code}`)
-              setCopied(true)
-              window.setTimeout(() => setCopied(false), 2000)
-            }}
-          >
-            <Clipboard size={17} aria-hidden="true" />
-            {copied ? 'Copied' : 'Copy'}
-          </button>
+          <div className="room-code-actions">
+            {snapshot.participant.role === 'facilitator' && (
+              <button
+                className="button button-primary room-copy"
+                type="button"
+                onClick={() => setPresenting(true)}
+              >
+                <MonitorPlay size={17} aria-hidden="true" /> Present
+              </button>
+            )}
+            <button
+              className="button button-quiet room-copy"
+              type="button"
+              onClick={() => {
+                void navigator.clipboard.writeText(`${joinAddress} — code ${snapshot.game.code}`)
+                setCopied(true)
+                window.setTimeout(() => setCopied(false), 2000)
+              }}
+            >
+              <Clipboard size={17} aria-hidden="true" />
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
           <div className={`room-state state-${snapshot.game.status}`}><i /><span>{snapshot.game.status}</span></div>
         </section>
 
