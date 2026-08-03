@@ -390,8 +390,8 @@ body.board-dragging, body.board-dragging * { user-select: none; }
 .briefing-stranded p { margin: 0; display: grid; gap: 3px; color: #3c4a46; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .briefing-stranded p span { color: #6d7975; font-size: 11px; font-weight: 600; text-transform: none; letter-spacing: 0; }
 .briefing-stranded > div { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.stranded-chip { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #fff; border: 1px solid #d5dcd9; border-left: 4px solid currentColor; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-.stranded-chip strong { color: #17201e; font: 700 17px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.stranded-chip { min-height: 42px; padding: 0 15px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; background: #fff; border: 1px solid #d5dcd9; border-left: 4px solid currentColor; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.stranded-chip strong { color: #17201e; font: 700 19px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .stranded-chip.material-red { color: #b83b31; }
 .stranded-chip.material-yellow { color: #916b00; }
 .stranded-chip.material-blue { color: #2f65a7; }

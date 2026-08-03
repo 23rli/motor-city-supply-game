@@ -129,7 +129,7 @@
 .stranded-panel > summary::after { content: '+'; margin-left: auto; font-size: 16px; }
 .stranded-panel[open] > summary::after { content: '\2212'; }
 .stranded-panel > summary em { color: #6d7975; font-style: normal; font-weight: 500; }
-.stranded-body { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 0 14px; }
+.stranded-body { display: flex; gap: 10px; flex-wrap: wrap; padding: 2px 0 15px; }
 
 .cohort-grid { margin-top: 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 14px; }
 
