@@ -29,6 +29,7 @@ die() { echo "$1" >&2; exit 1; }
 [[ $EUID -eq 0 ]] || die "Run with sudo."
 [[ -x $NODE_BIN/node ]] || die "No private Node runtime at $NODE_BIN. Run install.sh first."
 [[ -f /etc/motor-city.env ]] || die "No /etc/motor-city.env. Run install.sh first."
+command -v git >/dev/null 2>&1 || die "git is not installed. Install it, then re-run."
 
 FREE_MB="$(df -Pm "$APP_DIR" | awk 'NR==2 {print $4}')"
 if (( FREE_MB < 1500 )); then

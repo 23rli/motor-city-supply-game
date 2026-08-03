@@ -61,7 +61,7 @@ log "Installing PostgreSQL and Caddy"
 if [[ $PKG == apt ]]; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y -qq postgresql curl xz-utils ca-certificates \
+  apt-get install -y -qq postgresql curl xz-utils ca-certificates git \
     debian-keyring debian-archive-keyring apt-transport-https gnupg
   if ! command -v caddy >/dev/null 2>&1; then
     curl -fsSL https://dl.cloudsmith.io/public/caddy/stable/gpg.key \
@@ -76,7 +76,7 @@ if [[ $PKG == apt ]]; then
 else
   # Amazon Linux 2023 has no "caddy" package and only versioned PostgreSQL.
   # curl is deliberately absent here: curl-minimal already provides it and the two conflict.
-  dnf install -y -q tar xz gzip ca-certificates
+  dnf install -y -q tar xz gzip ca-certificates git
   dnf install -y -q postgresql16-server postgresql16 \
     || dnf install -y -q postgresql15-server postgresql15
   [[ -d /var/lib/pgsql/data/base ]] || postgresql-setup --initdb
