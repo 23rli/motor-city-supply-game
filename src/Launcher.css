@@ -546,6 +546,36 @@
   padding: 8px 16px; color: #eaf1ee; font-size: clamp(16px, 1.7vw, 24px);
   background: #1e2b27; border: 1px solid #35443f; border-radius: 999px;
 }
+
+.presenter-standings { text-align: left; }
+.presenter-standings .presenter-kicker {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+}
+.presenter-standings .presenter-joincode {
+  color: #cfdad6; font-size: clamp(14px, 1.3vw, 20px); font-weight: 600; letter-spacing: .04em;
+  /* The address must stay lowercase; the kicker above uppercases its own text. */
+  text-transform: none;
+}
+.presenter-standings ol {
+  margin: 26px 0 0; padding: 0; list-style: none;
+  display: grid; gap: 10px;
+}
+.presenter-standings li {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 18px; align-items: center;
+  padding: 14px 22px; background: #1b2724; border: 1px solid #2f3d38; border-radius: 8px;
+}
+.presenter-place {
+  min-width: 54px; display: inline-flex; justify-content: center; color: #8fa39d;
+  font: 700 clamp(24px, 3vw, 40px)/1 var(--font-display); font-variant-numeric: tabular-nums;
+}
+.presenter-name { color: #fff; font-size: clamp(20px, 2.4vw, 34px); font-weight: 600; }
+.presenter-turn { color: #9db0aa; font-size: clamp(15px, 1.5vw, 22px); }
+.presenter-revenue {
+  color: #ffd75e; font: 700 clamp(22px, 2.6vw, 38px)/1 var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+.presenter-leader { background: #23332c; border-color: #4a6b52; }
+.presenter-leader .presenter-place { color: #ffd75e; }
 .room-state { min-width: 108px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-transform: uppercase; font-size: 11px; font-weight: 800; }
 .room-state i { width: 9px; height: 9px; border-radius: 50%; }
 .state-waiting i { background: #d4a72c; }

@@ -287,12 +287,7 @@ export function TeamSession({
           joinAddress={joinAddress}
           status={snapshot.game.status}
           roster={snapshot.roster}
-          rounds={report?.players.length
-            ? {
-              low: Math.min(...report.players.map((player) => player.currentRound)),
-              high: Math.max(...report.players.map((player) => player.currentRound)),
-            }
-            : null}
+          standings={leaderboard}
           onClose={() => setPresenting(false)}
         />
       )}
