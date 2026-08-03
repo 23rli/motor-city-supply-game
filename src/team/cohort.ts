@@ -25,6 +25,7 @@ export interface CohortSummary {
   players: number
   stalled: number
   rounds: { low: number; high: number; median: number }
+  revenue: { low: number; high: number; median: number; mean: number }
   score: { low: number; high: number; median: number; mean: number }
   wip: { total: number; median: number }
   shipped: number
@@ -36,6 +37,7 @@ export function summarizeCohort(
   now = Date.now(),
 ): CohortSummary {
   const rounds = players.map((player) => player.currentRound)
+  const revenues = players.map((player) => player.revenue)
   const scores = players.map((player) => player.projectedScore)
   const wips = players.map((player) => total(player.wip))
 
@@ -48,6 +50,12 @@ export function summarizeCohort(
       low: rounds.length ? Math.min(...rounds) : 0,
       high: rounds.length ? Math.max(...rounds) : 0,
       median: median(rounds),
+    },
+    revenue: {
+      low: revenues.length ? Math.min(...revenues) : 0,
+      high: revenues.length ? Math.max(...revenues) : 0,
+      median: median(revenues),
+      mean: mean(revenues),
     },
     score: {
       low: scores.length ? Math.min(...scores) : 0,

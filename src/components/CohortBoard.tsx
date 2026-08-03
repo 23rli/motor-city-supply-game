@@ -138,7 +138,9 @@ export function CohortBoard({
       <dl className="cohort-stats">
         <div><dt>Players</dt><dd>{summary.players}</dd></div>
         <div><dt>Rounds</dt><dd>{summary.rounds.low}&ndash;{summary.rounds.high}</dd></div>
-        <div><dt>Median score</dt><dd>${summary.score.median.toFixed(2)}</dd></div>
+        {finished
+          ? <div><dt>Median score</dt><dd>${summary.score.median.toFixed(2)}</dd></div>
+          : <div><dt>Median revenue</dt><dd>${summary.revenue.median.toFixed(2)}</dd></div>}
         <div><dt>Cars shipped</dt><dd>{summary.shipped}</dd></div>
         <div className={summary.stalled > 0 ? 'cohort-alert' : undefined}>
           <dt>Quiet boards</dt><dd>{summary.stalled}</dd>
@@ -172,9 +174,11 @@ export function CohortBoard({
               </header>
 
               <dl>
-                <div><dt>Score</dt><dd>${player.projectedScore.toFixed(2)}</dd></div>
+                <div><dt>Revenue</dt><dd>${player.revenue.toFixed(2)}</dd></div>
                 <div><dt>Shipped</dt><dd>{totalOf(player.completed)}</dd></div>
-                <div><dt>WIP</dt><dd>{wip}</dd></div>
+                {/* Cars still on the floor are the penalty, so they stay hidden until the reveal. */}
+                {finished && <div><dt>WIP</dt><dd>{wip}</dd></div>}
+                {finished && <div><dt>Score</dt><dd>${player.projectedScore.toFixed(2)}</dd></div>}
               </dl>
 
               <p className="cohort-signals">

@@ -67,9 +67,12 @@ do not share a board.
 
 Your screen shows:
 
-- **Leaderboard** — live standings, with revenue, unfinished cars, the penalty, and the score
+- **Leaderboard** — live standings, ordered by revenue
 - **Factory floor** — a card per student, showing where their cars are sitting
 - **Control** — the two settings below, and the button to end the run
+
+While the game is running, nothing on screen mentions unfinished cars, the penalty, or the final
+score — not even on your own console. That is deliberate. See [The reveal](#the-reveal).
 
 Two settings control scoring. You can change them at any point while the game is running:
 
@@ -100,12 +103,31 @@ Before the game starts it shows the address, the join code in very large type, a
 everyone who has joined — so latecomers can get themselves in without interrupting you.
 
 Once play begins it becomes a simple standings board: place, name, turn, and revenue. Nothing
-else. The penalty arithmetic, unfinished-car counts, and scores stay on your screen only.
+else. The penalty arithmetic and scores stay hidden until you choose to reveal them.
 
 Press **Escape**, or **Close**, to leave it.
 
 To use two screens at once, open the game in a second browser window, use **Rejoin** with your
 own name and recovery code, and put that window on the projector. Press **Present** there.
+
+---
+
+## The reveal
+
+All game, the room sees revenue only. Whoever has earned the most sits top. Nobody — including
+you — sees what the cars still sitting on the floor are about to cost.
+
+After you end the run, the projector still shows that same revenue order, with a button:
+**Charge the unfinished cars**. Press it when you are ready. Every board is charged for its
+unfinished cars, the amounts appear in red, and the names slide into their real final order.
+
+A student who piled up work in progress can drop several places at this point. That is the
+lesson, and it is worth letting the room react before you say anything.
+
+**Show it again** replays it, for a second section or a second look.
+
+Ending the run does not itself give the result away, so you can end it, take questions, and
+reveal whenever it suits you.
 
 ---
 
@@ -115,6 +137,10 @@ Press **End production**, then **Yes, end it**.
 
 Scores lock at the round you chose, and students can no longer move cars. They keep seeing their
 own final board and summary.
+
+Your leaderboard now gains the columns that were hidden during play: WIP exposure, peak and
+average work in progress, and the final score. The projector does not change until you press
+**Charge the unfinished cars**.
 
 You can still download the results afterwards — ending the run does not close anything off.
 
@@ -143,9 +169,9 @@ Both work after the run has ended. Download them whenever you like; the session 
   exchange, and the economics all behave exactly as they always have.
 - **Students never see each other's numbers** unless you project them. Their own screen shows
   their own factory only.
-- **The standings order is the real score** — revenue minus the cost of unfinished cars. A
-  student with more revenue can sit lower, because cars left on the floor are charged for. That
-  is the point of the game, and it is worth saying out loud the first time it happens.
+- **During the game, standings are revenue only.** The cost of unfinished cars is applied once,
+  at the end, when you reveal it — and the order can change sharply. Students who have worked
+  out that piling up cars is expensive will be watching for it.
 - **A session lasts 12 hours**, then it is cleared. Download the workbook before you leave.
 - **Closing your browser does not end the game.** Students keep playing. Use your recovery code
   to get back in.

@@ -2,6 +2,15 @@ import type { TeamPlayerReport } from './types'
 
 export type Movement = 'new' | 'up' | 'down' | 'level'
 
+/**
+ * What the places are worked out from. During play it is revenue alone, so the WIP penalty
+ * stays hidden until the facilitator reveals it and the order rearranges.
+ */
+export type RankBasis = 'revenue' | 'score'
+
+export const rankValue = (player: TeamPlayerReport, basis: RankBasis) =>
+  basis === 'revenue' ? player.revenue : player.projectedScore
+
 export interface RankedPlayer {
   player: TeamPlayerReport
   rank: number
@@ -10,24 +19,25 @@ export interface RankedPlayer {
   behindLeader: number
 }
 
-/** Rank by score, ties sharing a place. Name breaks ties so the order never jitters between polls. */
+/** Rank by the chosen basis, ties sharing a place. Name breaks ties so the order never jitters between polls. */
 export function rankPlayers(
   players: TeamPlayerReport[],
   previousRanks?: ReadonlyMap<string, number>,
+  basis: RankBasis = 'score',
 ): RankedPlayer[] {
   const sorted = [...players].sort((left, right) =>
-    right.projectedScore - left.projectedScore
+    rankValue(right, basis) - rankValue(left, basis)
     || left.name.localeCompare(right.name, 'en-US')
     || left.id.localeCompare(right.id),
   )
 
-  const leadingScore = sorted[0]?.projectedScore ?? 0
+  const leadingScore = sorted.length ? rankValue(sorted[0], basis) : 0
   const ranked: RankedPlayer[] = []
 
   sorted.forEach((player, index) => {
     const previousEntry = ranked[index - 1]
     // Standard competition ranking: equal scores share a place and the next one skips.
-    const rank = previousEntry && previousEntry.player.projectedScore === player.projectedScore
+    const rank = previousEntry && rankValue(previousEntry.player, basis) === rankValue(player, basis)
       ? previousEntry.rank
       : index + 1
     const was = previousRanks?.get(player.id)
@@ -42,7 +52,7 @@ export function rankPlayers(
       player,
       rank,
       movement,
-      behindLeader: leadingScore - player.projectedScore,
+      behindLeader: leadingScore - rankValue(player, basis),
     })
   })
 

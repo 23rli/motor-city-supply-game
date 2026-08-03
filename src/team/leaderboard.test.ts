@@ -115,6 +115,55 @@ describe('facilitator leaderboard', () => {
   })
 })
 
+describe('hiding the WIP penalty until the reveal', () => {
+  // Revenue and score deliberately disagree: Bo earned the most but left cars on the floor.
+  const earner = (
+    id: string,
+    name: string,
+    revenue: number,
+    projectedPenalty: number,
+  ): TeamPlayerReport => ({
+    ...player(id, name, revenue),
+    revenue,
+    projectedPenalty,
+    projectedScore: revenue - projectedPenalty,
+  })
+
+  const field = () => [
+    earner('a', 'Ada', 900, 100),
+    earner('b', 'Bo', 1000, 400),
+    earner('c', 'Cy', 800, 0),
+  ]
+
+  it('ranks on revenue alone while the game is running', () => {
+    const ranked = rankPlayers(field(), undefined, 'revenue')
+
+    expect(ranked.map((entry) => entry.player.name)).toEqual(['Bo', 'Ada', 'Cy'])
+    expect(ranked.map((entry) => entry.behindLeader)).toEqual([0, 100, 200])
+  })
+
+  it('rearranges once the penalty is applied at the end', () => {
+    const ranked = rankPlayers(field(), undefined, 'score')
+
+    expect(ranked.map((entry) => entry.player.name)).toEqual(['Ada', 'Cy', 'Bo'])
+    expect(ranked.map((entry) => entry.behindLeader)).toEqual([0, 0, 200])
+  })
+
+  it('ties on revenue can be broken apart by the penalty', () => {
+    const tied = [earner('a', 'Ada', 500, 0), earner('b', 'Bo', 500, 250)]
+
+    expect(rankPlayers(tied, undefined, 'revenue').map((entry) => entry.rank)).toEqual([1, 1])
+    expect(rankPlayers(tied, undefined, 'score').map((entry) => [entry.rank, entry.player.name]))
+      .toEqual([[1, 'Ada'], [2, 'Bo']])
+  })
+
+  it('still defaults to score, so nothing that omits the basis loses the penalty', () => {
+    expect(rankPlayers(field()).map((entry) => entry.player.name)).toEqual(
+      rankPlayers(field(), undefined, 'score').map((entry) => entry.player.name),
+    )
+  })
+})
+
 describe('leaderboard sorting', () => {
   const ranked = () => rankPlayers([
     player('a', 'Cy', 100),

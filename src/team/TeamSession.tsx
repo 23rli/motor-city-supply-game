@@ -66,9 +66,34 @@ export function TeamSession({
   const [presenting, setPresenting] = useState(false)
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
+  const finished = snapshot?.game.status === 'finished'
+  // Until the run ends the WIP penalty is not applied anywhere, so the reveal still lands.
   const leaderboard = useMemo(
-    () => rankPlayers(report?.players ?? [], previousRanks.current),
+    () => rankPlayers(report?.players ?? [], previousRanks.current, finished ? 'score' : 'revenue'),
+    [report, finished],
+  )
+  // The order the room has been watching all game, kept so the presenter can rearrange from it.
+  const revenueStandings = useMemo(
+    () => rankPlayers(report?.players ?? [], undefined, 'revenue'),
     [report],
+  )
+  const columns = useMemo(
+    () => ([
+      ['rank', '#'],
+      ['name', 'Player'],
+      ['behind', 'Behind'],
+      ['round', 'Round'],
+      ['revenue', 'Revenue'],
+      ...(finished
+        ? [
+            ['penalty', 'WIP exposure'],
+            ['peakWip', 'Peak WIP'],
+            ['averageWip', 'Avg WIP'],
+            ['score', 'Score'],
+          ] as [SortKey, string][]
+        : []),
+    ] as [SortKey, string][]),
+    [finished],
   )
   const visibleRows = useMemo(
     () => sortLeaderboard(leaderboard, sortKey, sortDirection),
@@ -82,10 +107,16 @@ export function TeamSession({
     setSortKey(key)
     setSortDirection(key === 'name' || key === 'rank' ? 'asc' : 'desc')
   }
+  // A hidden column must not keep driving the sort once the run ends and the set changes.
+  useEffect(() => {
+    if (!columns.some(([key]) => key === sortKey)) {
+      setSortKey('rank')
+      setSortDirection('asc')
+    }
+  }, [columns, sortKey])
   useEffect(() => {
     previousRanks.current = rankSnapshot(leaderboard)
   }, [leaderboard])
-  const finished = snapshot?.game.status === 'finished'
   const gameStats = useMemo(
     () => summarizeGameStats(report?.players ?? []),
     [report],
@@ -287,7 +318,8 @@ export function TeamSession({
           joinAddress={joinAddress}
           status={snapshot.game.status}
           roster={snapshot.roster}
-          standings={leaderboard}
+          standings={revenueStandings}
+          finalStandings={finished ? leaderboard : null}
           onClose={() => setPresenting(false)}
         />
       )}
@@ -490,7 +522,7 @@ export function TeamSession({
         {(snapshot.participant.role === 'facilitator' || snapshot.game.status === 'finished') && (
           <section className="leaderboard-panel" aria-labelledby="leaderboard-title">
             <div className="panel-heading">
-              <div><p>Live standings</p><h2 id="leaderboard-title">Leaderboard</h2></div>
+              <div><p>{finished ? 'Final result' : 'Live standings'}</p><h2 id="leaderboard-title">Leaderboard</h2></div>
               {leaderboard.length > 1 && (
                 <span className="leaderboard-spread">
                   {leaderboard[leaderboard.length - 1].behindLeader === 0
@@ -518,17 +550,7 @@ export function TeamSession({
               <table>
                 <thead>
                   <tr>
-                    {([
-                      ['rank', '#'],
-                      ['name', 'Player'],
-                      ['behind', 'Behind'],
-                      ['round', 'Round'],
-                      ['revenue', 'Revenue'],
-                      ['penalty', 'WIP exposure'],
-                      ['peakWip', 'Peak WIP'],
-                      ['averageWip', 'Avg WIP'],
-                      ['score', 'Score'],
-                    ] as [SortKey, string][]).map(([key, label]) => (
+                    {columns.map(([key, label]) => (
                       <th
                         scope="col"
                         key={key}
@@ -554,7 +576,7 @@ export function TeamSession({
                 </thead>
                 <tbody>
                   {!visibleRows.length ? (
-                    <tr><td colSpan={9} className="empty-row">Player results will appear here.</td></tr>
+                    <tr><td colSpan={columns.length} className="empty-row">Player results will appear here.</td></tr>
                   ) : visibleRows.map((entry) => (
                     <tr key={entry.player.id} className={entry.rank === 1 ? 'leaderboard-leader' : undefined}>
                       <td>
@@ -583,10 +605,14 @@ export function TeamSession({
                       <td>{entry.behindLeader === 0 ? '—' : `-$${entry.behindLeader.toFixed(2)}`}</td>
                       <td>{entry.player.scoredThroughRound}</td>
                       <td>${entry.player.revenue.toFixed(2)}</td>
-                      <td>${entry.player.projectedPenalty.toFixed(2)}</td>
-                      <td>{entry.player.peakWip}</td>
-                      <td>{entry.player.averageWip}</td>
-                      <td><strong>${entry.player.projectedScore.toFixed(2)}</strong></td>
+                      {finished && (
+                        <>
+                          <td>${entry.player.projectedPenalty.toFixed(2)}</td>
+                          <td>{entry.player.peakWip}</td>
+                          <td>{entry.player.averageWip}</td>
+                          <td><strong>${entry.player.projectedScore.toFixed(2)}</strong></td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>

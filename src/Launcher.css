@@ -557,12 +557,54 @@
   text-transform: none;
 }
 .presenter-standings ol {
-  margin: 26px 0 0; padding: 0; list-style: none;
-  display: grid; gap: 10px;
+  --presenter-row: clamp(56px, 8vh, 96px);
+  position: relative; margin: 26px 0 0; padding: 0; list-style: none;
 }
 .presenter-standings li {
-  display: grid; grid-template-columns: auto 1fr auto auto; gap: 18px; align-items: center;
-  padding: 14px 22px; background: #1b2724; border: 1px solid #2f3d38; border-radius: 8px;
+  position: absolute; left: 0; right: 0; top: 0;
+  height: calc(var(--presenter-row) - 12px);
+  display: grid; gap: 18px; align-items: center;
+  /* Fixed tracks, or every row sizes its own and the numbers come out ragged. */
+  grid-template-columns:
+    minmax(54px, auto) 1fr
+    clamp(46px, 4vw, 72px)
+    clamp(74px, 7vw, 118px)
+    clamp(92px, 9vw, 152px)
+    clamp(112px, 11vw, 186px);
+  padding: 0 22px; background: #1b2724; border: 1px solid #2f3d38; border-radius: 8px;
+  transition: transform 950ms cubic-bezier(.2, .75, .2, 1), background 500ms ease, border-color 500ms ease;
+}
+.presenter-standings li > :nth-child(n + 3) { justify-self: end; }
+/* Pinned explicitly, because the movement and penalty cells only appear on some rows. */
+.presenter-standings .presenter-place { grid-column: 1; }
+.presenter-standings .presenter-name { grid-column: 2; }
+.presenter-standings .presenter-moved { grid-column: 3; }
+.presenter-standings .presenter-turn { grid-column: 4; }
+.presenter-standings .presenter-penalty { grid-column: 5; }
+.presenter-standings .presenter-revenue { grid-column: 6; }
+@media (prefers-reduced-motion: reduce) {
+  .presenter-standings li { transition: none; }
+}
+.presenter-penalty {
+  color: #ff8f7a; font: 700 clamp(16px, 1.9vw, 26px)/1 var(--font-display);
+  font-variant-numeric: tabular-nums; animation: penalty-land 420ms ease both;
+}
+.presenter-moved {
+  display: inline-flex; align-items: center; gap: 2px;
+  font: 700 clamp(15px, 1.6vw, 22px)/1 var(--font-display);
+  animation: penalty-land 420ms ease both;
+}
+.presenter-moved.up { color: #6fd39a; }
+.presenter-moved.down { color: #ff8f7a; }
+@keyframes penalty-land {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.presenter-reveal { margin-top: 34px; display: flex; justify-content: center; }
+.presenter-reveal .button { font-size: clamp(16px, 1.7vw, 24px); padding: 14px 30px; }
+.presenter-counting {
+  margin: 0; color: #ffd75e; font-size: clamp(18px, 2vw, 28px); font-weight: 700;
+  letter-spacing: .04em;
 }
 .presenter-place {
   min-width: 54px; display: inline-flex; justify-content: center; color: #8fa39d;
