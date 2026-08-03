@@ -59,6 +59,10 @@ export function TeamSession({
   const previousRanks = useRef<ReadonlyMap<string, number>>(new Map())
   const [sortKey, setSortKey] = useState<SortKey>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [copied, setCopied] = useState(false)
+  const [ending, setEnding] = useState(false)
+  // What a student should type into a browser, without the scheme or a trailing slash.
+  const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const leaderboard = useMemo(
     () => rankPlayers(report?.players ?? [], previousRanks.current),
     [report],
@@ -280,13 +284,39 @@ export function TeamSession({
           <div><h1>Motor City</h1><p>{snapshot.participant.role} console</p></div>
         </div>
         <div className={`sync-state sync-${connectionState}`}><Radio size={14} aria-hidden="true" /><span>{connectionState}</span></div>
-        <button className="button button-quiet" type="button" onClick={onExit}><ArrowLeft size={17} /> Leave</button>
+        <button
+          className="button button-quiet"
+          type="button"
+          title="Closes this screen. The session keeps running and you can come back to it."
+          onClick={onExit}
+        >
+          <ArrowLeft size={17} aria-hidden="true" /> Leave
+        </button>
       </header>
 
       <main className="room-main">
         <section className="room-code-band">
-          <div><p>{snapshot.game.status === 'waiting' ? 'Lobby open' : snapshot.game.status === 'active' ? 'Production underway' : 'Run complete'}</p><h2>{snapshot.game.code}</h2></div>
-          <button className="icon-button room-copy" type="button" title="Copy join code" aria-label="Copy join code" onClick={() => void navigator.clipboard.writeText(snapshot.game.code)}><Clipboard size={19} /></button>
+          <div className="room-code-main">
+            <p>{snapshot.game.status === 'waiting' ? 'Lobby open' : snapshot.game.status === 'active' ? 'Production underway' : 'Run complete'}</p>
+            <h2>{snapshot.game.code}</h2>
+            {snapshot.participant.role === 'facilitator' && snapshot.game.status !== 'finished' && (
+              <p className="room-code-directions">
+                Students: go to <strong>{joinAddress}</strong> and enter this code.
+              </p>
+            )}
+          </div>
+          <button
+            className="button button-quiet room-copy"
+            type="button"
+            onClick={() => {
+              void navigator.clipboard.writeText(`${joinAddress} — code ${snapshot.game.code}`)
+              setCopied(true)
+              window.setTimeout(() => setCopied(false), 2000)
+            }}
+          >
+            <Clipboard size={17} aria-hidden="true" />
+            {copied ? 'Copied' : 'Copy'}
+          </button>
           <div className={`room-state state-${snapshot.game.status}`}><i /><span>{snapshot.game.status}</span></div>
         </section>
 
@@ -346,38 +376,76 @@ export function TeamSession({
             <div className="panel-heading"><div><p>Session</p><h2 id="control-title">Control</h2></div></div>
             {snapshot.participant.role === 'facilitator' ? (
               <>
-                <dl className="session-details"><div><dt>Models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div><div><dt>Created</dt><dd>{new Date(snapshot.game.createdAt).toLocaleDateString()}</dd></div></dl>
+                <dl className="session-details"><div><dt>Car models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div><div><dt>Players</dt><dd>{snapshot.roster.filter((member) => member.role === 'player').length}</dd></div></dl>
                 {snapshot.game.status === 'waiting' && <button className="button button-primary control-action" type="button" disabled={busy} onClick={() => void runLifecycle('start')}><Play size={17} fill="currentColor" /> Start production</button>}
                 {snapshot.game.status === 'active' && (
                   <>
                     <div className="end-settings">
                       <label>
-                        <span>WIP round</span>
-                        <input
-                          type="number"
-                          min="1"
-                          value={penaltyRound}
-                          onChange={(event) => setPenaltyRound(Math.max(1, Number(event.target.value)))}
-                        />
-                      </label>
-                      <label>
-                        <span>Report cutoff</span>
+                        <span>Score up to round</span>
                         <input
                           type="number"
                           min="1"
                           value={endRound}
                           onChange={(event) => setEndRound(Math.max(1, Number(event.target.value)))}
                         />
+                        <em>Revenue is counted through this round.</em>
+                      </label>
+                      <label>
+                        <span>Charge unfinished cars at round</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={penaltyRound}
+                          onChange={(event) => setPenaltyRound(Math.max(1, Number(event.target.value)))}
+                        />
+                        <em>Cars still on the floor at this round cost money.</em>
                       </label>
                     </div>
-                    <button
-                      className="button button-danger control-action"
-                      type="button"
-                      disabled={busy || penaltyRound > endRound}
-                      onClick={() => void runLifecycle('end')}
-                    >
-                      <Flag size={17} /> End production
-                    </button>
+
+                    {penaltyRound > endRound && (
+                      <p className="form-error" role="alert">
+                        The penalty round cannot be later than the round you score up to.
+                      </p>
+                    )}
+
+                    {ending ? (
+                      <div className="end-confirm">
+                        <p>
+                          End the run for everyone? Scores lock at round {endRound} and players
+                          can no longer move cars. You can still download the results afterwards.
+                        </p>
+                        <div className="end-confirm-actions">
+                          <button
+                            className="button button-danger control-action"
+                            type="button"
+                            disabled={busy || penaltyRound > endRound}
+                            onClick={() => {
+                              setEnding(false)
+                              void runLifecycle('end')
+                            }}
+                          >
+                            <Flag size={17} aria-hidden="true" /> Yes, end it
+                          </button>
+                          <button
+                            className="button button-secondary control-action"
+                            type="button"
+                            onClick={() => setEnding(false)}
+                          >
+                            Keep playing
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="button button-danger control-action"
+                        type="button"
+                        disabled={busy || penaltyRound > endRound}
+                        onClick={() => setEnding(true)}
+                      >
+                        <Flag size={17} aria-hidden="true" /> End production
+                      </button>
+                    )}
                   </>
                 )}
                 {snapshot.game.status === 'finished' && <div className="finished-state"><Check size={18} /><span>Final report locked</span></div>}

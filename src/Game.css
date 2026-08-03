@@ -546,7 +546,7 @@ body.board-dragging, body.board-dragging * { user-select: none; }
 .table-scroll table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
 .table-scroll th, .table-scroll td { padding: 11px 13px; text-align: right; border-bottom: 1px solid #e0e5e3; white-space: nowrap; }
 .table-scroll th:first-child, .table-scroll td:first-child { text-align: left; }
-.table-scroll th { color: #56645f; background: #eef1ef; font-size: 10px; text-transform: uppercase; }
+.table-scroll th { color: #4c5a55; background: #eef1ef; font-size: 12px; text-transform: uppercase; }
 .empty-row { height: 100px; color: #6d7975; text-align: center !important; }
 
 @media (max-width: 820px) {

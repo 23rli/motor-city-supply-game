@@ -115,7 +115,7 @@
 .cohort-stats { margin: 14px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid #d5dcd9; border-radius: 5px; overflow: hidden; }
 .cohort-stats > div { padding: 11px 13px; background: #f7f9f8; }
 .cohort-stats > div + div { border-left: 1px solid #d5dcd9; }
-.cohort-stats dt { color: #64716d; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.cohort-stats dt { color: #5b6864; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
 .cohort-stats dd { margin: 5px 0 0; font: 700 21px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .cohort-alert { background: #fdf1ee; }
 .cohort-alert dd { color: #b0472c; }
@@ -133,7 +133,7 @@
 .cohort-card header strong { overflow: hidden; font: 700 15px/1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .cohort-round { color: #5b6864; font: 700 12px/1 var(--font-display); }
 .cohort-card dl { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.cohort-card dt { color: #6d7975; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.cohort-card dt { color: #616e6a; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .cohort-card dd { margin: 3px 0 0; font: 700 15px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .cohort-signals { margin: 0; display: grid; gap: 4px; color: #5b6864; font-size: 11px; }
 .cohort-signals span { display: inline-flex; align-items: center; gap: 5px; }
@@ -230,9 +230,9 @@
 .panel-heading p,
 .room-code-band p {
   margin: 0;
-  color: #687773;
-  font-size: 11px;
-  font-weight: 800;
+  color: #5b6864;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -485,8 +485,17 @@
 }
 
 .room-code-band p { color: #aebbb7; }
-.room-code-band h2 { margin: 4px 0 0; font: 700 48px/1 var(--font-display); }
-.room-copy { flex: none; }
+.room-code-band h2 { margin: 4px 0 0; font: 700 48px/1 var(--font-display); letter-spacing: .04em; }
+.room-code-band .room-code-directions {
+  margin: 10px 0 0;
+  color: #e4ebe8;
+  font-size: 16px;
+  font-weight: 400;
+  /* The address has to stay lowercase; the surrounding band uppercases its labels. */
+  text-transform: none;
+}
+.room-code-band .room-code-directions strong { color: #fff; border-bottom: 2px solid #d8b743; }
+.room-copy { flex: none; align-self: start; }
 .room-state { min-width: 108px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; text-transform: uppercase; font-size: 11px; font-weight: 800; }
 .room-state i { width: 9px; height: 9px; border-radius: 50%; }
 .state-waiting i { background: #d4a72c; }
@@ -580,16 +589,21 @@
 .roster-avatar { width: 34px; height: 34px; display: grid; place-items: center; color: #fff; background: #53645f; border-radius: 3px; font: 700 11px/1 var(--font-display); }
 .roster-row div { display: grid; gap: 4px; }
 .roster-row strong { font-size: 13px; }
-.roster-row small { color: #7a8783; font-size: 10px; text-transform: uppercase; }
+.roster-row small { color: #6b7773; font-size: 12px; text-transform: uppercase; }
 
 .session-details { margin: 0; padding: 16px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .session-details div { display: grid; gap: 4px; }
-.session-details dt { color: #687773; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-.session-details dd { margin: 0; font: 700 18px/1 var(--font-display); }
-.end-settings { padding: 0 18px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.session-details dt { color: #5b6864; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.session-details dd { margin: 0; font: 700 20px/1 var(--font-display); }
+.end-settings { padding: 0 18px 12px; display: grid; gap: 14px; }
 .end-settings label { min-width: 0; display: grid; gap: 5px; }
-.end-settings span { color: #687773; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-.end-settings input { width: 100%; min-height: 40px; padding: 0 9px; color: #17201e; background: #f8f9f8; border: 1px solid #b8c3bf; border-radius: 4px; }
+.end-settings span { color: #253330; font-size: 14px; font-weight: 700; }
+.end-settings em { color: #5b6864; font-size: 12px; font-style: normal; }
+.end-settings input { width: 100%; min-height: 44px; padding: 0 10px; color: #17201e; font-size: 16px; background: #f8f9f8; border: 1px solid #b8c3bf; border-radius: 4px; }
+
+.end-confirm { padding: 0 18px 14px; }
+.end-confirm p { margin: 0 0 10px; color: #253330; font-size: 14px; }
+.end-confirm-actions { display: grid; gap: 8px; }
 .control-action { width: calc(100% - 36px); margin: 4px 18px 18px; }
 .button-danger { color: #fff; background: #8f3029; border-color: #74241f; }
 .button-danger:hover { background: #7b2822; }
