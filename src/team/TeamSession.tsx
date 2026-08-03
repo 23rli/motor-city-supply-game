@@ -18,7 +18,7 @@ import {
 import MotorCityApp from '../MotorCityApp'
 import { CohortBoard } from '../components/CohortBoard'
 import { ApiClientError, teamApi } from './api'
-import { podium, rankPlayers, rankSnapshot } from './leaderboard'
+import { podium, rankPlayers, rankSnapshot, sortLeaderboard, type SortDirection, type SortKey } from './leaderboard'
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
 import type {
   PlayerCommand,
@@ -57,10 +57,24 @@ export function TeamSession({
 
   // Ranks from the previous poll, so the board can show which way each player just moved.
   const previousRanks = useRef<ReadonlyMap<string, number>>(new Map())
+  const [sortKey, setSortKey] = useState<SortKey>('rank')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const leaderboard = useMemo(
     () => rankPlayers(report?.players ?? [], previousRanks.current),
     [report],
   )
+  const visibleRows = useMemo(
+    () => sortLeaderboard(leaderboard, sortKey, sortDirection),
+    [leaderboard, sortKey, sortDirection],
+  )
+  const toggleSort = (key: SortKey) => {
+    if (key === sortKey) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDirection(key === 'name' || key === 'rank' ? 'asc' : 'desc')
+  }
   useEffect(() => {
     previousRanks.current = rankSnapshot(leaderboard)
   }, [leaderboard])
@@ -381,6 +395,7 @@ export function TeamSession({
             finished={snapshot.game.status === 'finished'}
             onReadmit={(player) => void readmitPlayer(player)}
             onRemove={(player) => void removePlayer(player)}
+            onExport={() => teamApi.getExport(snapshot.game.id)}
             readmitted={readmitted}
             onDismissReadmit={() => setReadmitted(null)}
           />
@@ -417,19 +432,44 @@ export function TeamSession({
               <table>
                 <thead>
                   <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Player</th>
-                    <th scope="col">Behind</th>
-                    <th scope="col">Round</th>
-                    <th scope="col">Revenue</th>
-                    <th scope="col">WIP exposure</th>
-                    <th scope="col">Score</th>
+                    {([
+                      ['rank', '#'],
+                      ['name', 'Player'],
+                      ['behind', 'Behind'],
+                      ['round', 'Round'],
+                      ['revenue', 'Revenue'],
+                      ['penalty', 'WIP exposure'],
+                      ['peakWip', 'Peak WIP'],
+                      ['averageWip', 'Avg WIP'],
+                      ['score', 'Score'],
+                    ] as [SortKey, string][]).map(([key, label]) => (
+                      <th
+                        scope="col"
+                        key={key}
+                        aria-sort={
+                          sortKey === key
+                            ? sortDirection === 'asc' ? 'ascending' : 'descending'
+                            : 'none'
+                        }
+                      >
+                        <button
+                          type="button"
+                          className="column-sort"
+                          onClick={() => toggleSort(key)}
+                        >
+                          {label}
+                          {sortKey === key && (
+                            <span aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                          )}
+                        </button>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {!leaderboard.length ? (
-                    <tr><td colSpan={7} className="empty-row">Player results will appear here.</td></tr>
-                  ) : leaderboard.map((entry) => (
+                  {!visibleRows.length ? (
+                    <tr><td colSpan={9} className="empty-row">Player results will appear here.</td></tr>
+                  ) : visibleRows.map((entry) => (
                     <tr key={entry.player.id} className={entry.rank === 1 ? 'leaderboard-leader' : undefined}>
                       <td>
                         <span className="leaderboard-rank">
@@ -458,6 +498,8 @@ export function TeamSession({
                       <td>{entry.player.scoredThroughRound}</td>
                       <td>${entry.player.revenue.toFixed(2)}</td>
                       <td>${entry.player.projectedPenalty.toFixed(2)}</td>
+                      <td>{entry.player.peakWip}</td>
+                      <td>{entry.player.averageWip}</td>
                       <td><strong>${entry.player.projectedScore.toFixed(2)}</strong></td>
                     </tr>
                   ))}

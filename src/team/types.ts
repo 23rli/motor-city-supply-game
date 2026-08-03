@@ -4,6 +4,7 @@ import type {
   ModelValues,
   Resource,
   ResourcePool,
+  RoundSummary,
   Stage,
 } from '../game/types'
 
@@ -80,6 +81,15 @@ export interface TeamPlayerReport {
 export interface TeamReport {
   game: TeamGameSummary
   players: TeamPlayerReport[]
+}
+
+export interface TeamExportPlayer extends TeamPlayerReport {
+  history: RoundSummary[]
+}
+
+export interface TeamExport {
+  game: TeamGameSummary
+  players: TeamExportPlayer[]
 }
 
 export interface PlayerCommandResponse {

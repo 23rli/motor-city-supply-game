@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Download, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
 import { RESOURCES } from '../game/types'
 import { STALL_AFTER_MS, buildCohortCsv, summarizeCohort } from '../team/cohort'
-import type { TeamPlayerReport } from '../team/types'
+import { buildSessionWorkbook } from '../team/sessionWorkbook'
+import type { TeamExport, TeamPlayerReport } from '../team/types'
 
 const totalOf = (values: Record<string, number>) =>
   Object.values(values).reduce((sum, value) => sum + value, 0)
@@ -13,6 +14,7 @@ interface CohortBoardProps {
   finished: boolean
   onReadmit: (player: TeamPlayerReport) => void
   onRemove: (player: TeamPlayerReport) => void
+  onExport: () => Promise<TeamExport>
   readmitted: { name: string; recoveryCode: string } | null
   onDismissReadmit: () => void
 }
@@ -23,11 +25,14 @@ export function CohortBoard({
   finished,
   onReadmit,
   onRemove,
+  onExport,
   readmitted,
   onDismissReadmit,
 }: CohortBoardProps) {
   const [now, setNow] = useState(() => Date.now())
   const [confirming, setConfirming] = useState<string | null>(null)
+  const [building, setBuilding] = useState(false)
+  const [workbookError, setWorkbookError] = useState<string | null>(null)
   const summary = summarizeCohort(players, now)
 
   // Without its own tick, a board that goes quiet after this mounted would never be flagged.
@@ -48,18 +53,39 @@ export function CohortBoard({
     [players, now],
   )
 
-  const download = () => {
-    setNow(Date.now())
-    const blob = new Blob([buildCohortCsv(players)], { type: 'text/csv;charset=utf-8' })
+  const saveFile = (data: BlobPart, filename: string, type: string) => {
+    const blob = new Blob([data], { type })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `motor-city-${code}-cohort.csv`
+    link.download = filename
     // The anchor has to be in the document, and the URL has to outlive the click.
     document.body.append(link)
     link.click()
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 0)
+  }
+
+  const download = () => {
+    setNow(Date.now())
+    saveFile(buildCohortCsv(players), `motor-city-${code}-cohort.csv`, 'text/csv;charset=utf-8')
+  }
+
+  const downloadWorkbook = async () => {
+    setWorkbookError(null)
+    setBuilding(true)
+    try {
+      const data = await onExport()
+      saveFile(
+        buildSessionWorkbook(data),
+        `motor-city-${code}-session.xlsx`,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      )
+    } catch {
+      setWorkbookError('The workbook could not be built. The CSV export still works.')
+    } finally {
+      setBuilding(false)
+    }
   }
 
   if (players.length === 0) {
@@ -77,10 +103,23 @@ export function CohortBoard({
     <section className="cohort" aria-labelledby="cohort-title">
       <div className="panel-heading">
         <div><p>Live cohort</p><h2 id="cohort-title">Factory floor</h2></div>
-        <button className="button button-secondary" type="button" onClick={download}>
-          <Download size={16} aria-hidden="true" /> Export CSV
-        </button>
+        <div className="cohort-exports">
+          <button
+            className="button button-secondary"
+            type="button"
+            disabled={building}
+            onClick={() => void downloadWorkbook()}
+          >
+            <Download size={16} aria-hidden="true" />
+            {building ? 'Building...' : 'Excel workbook'}
+          </button>
+          <button className="button button-quiet" type="button" onClick={download}>
+            <Download size={16} aria-hidden="true" /> CSV
+          </button>
+        </div>
       </div>
+
+      {workbookError && <p className="form-error" role="alert">{workbookError}</p>}
 
       {readmitted && (
         <div className="readmit-banner" role="alert">

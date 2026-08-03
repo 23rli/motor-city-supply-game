@@ -3,6 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import {
   createGame,
   createRandomResourceSchedule,
+  getRoundSummary,
 } from '../src/game/engine'
 import type { GameConfig, GameState } from '../src/game/types'
 import type {
@@ -509,6 +510,37 @@ export class SqlSessionStore implements SessionStore {
       this.requireGame(participant, game, gameId)
       this.requireReportAccess(participant, game)
       return this.buildReport(tx, game)
+    })
+  }
+
+  /** Fetched only when a facilitator downloads, so the round history stays out of the poll. */
+  async getExport(token: string, gameId: string) {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token)
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
+
+      const report = await this.buildReport(tx, game)
+      const rows = await tx.query<ParticipantRow>(
+        `SELECT id, state FROM participants
+         WHERE game_id = $1 AND role = 'player' AND state IS NOT NULL`,
+        [game.id],
+      )
+      const historyById = new Map(
+        rows.rows
+          .filter((row) => row.state !== null)
+          .map((row) => {
+            const state = asJson<GameState>(row.state as string | GameState)
+            return [row.id, [...state.history, getRoundSummary(state)]] as const
+          }),
+      )
+      return {
+        ...report,
+        players: report.players.map((player) => ({
+          ...player,
+          history: historyById.get(player.id) ?? [],
+        })),
+      }
     })
   }
 

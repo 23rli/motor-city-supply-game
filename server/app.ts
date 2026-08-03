@@ -260,6 +260,15 @@ export function buildApp(
     )
   })
 
+  // Carries the per-round history, so it is fetched on download rather than on every poll.
+  app.get('/api/games/:gameId/export', async (request) => {
+    const { gameId } = parse(gameParamsSchema, request.params)
+    return store.getExport(
+      sessionToken(request),
+      gameId,
+    )
+  })
+
   // Lets a facilitator hand a fresh code to a student whose device died mid-session.
   app.post('/api/games/:gameId/participants/:participantId/recovery', async (request) => {
     const { gameId, participantId } = parse(

@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto'
 import {
   createGame,
   createRandomResourceSchedule,
+  getRoundSummary,
 } from '../src/game/engine'
 import type { GameConfig, GameState } from '../src/game/types'
 import type {
@@ -118,6 +119,7 @@ export interface SessionStore {
   endSession(token: string, gameId: string, input: EndSessionInput): Promise<unknown>
   executeCommand(token: string, input: PlayerCommandInput): Promise<PlayerCommandResult>
   getReport(token: string, gameId: string): Promise<unknown>
+  getExport(token: string, gameId: string): Promise<unknown>
   issueRecoveryCode(
     token: string,
     gameId: string,
@@ -457,6 +459,28 @@ export class InMemorySessionStore implements SessionStore {
     const { participant, session } = this.authenticateForGame(token, gameId)
     this.requireReportAccess(participant, session)
     return this.buildReport(session)
+  }
+
+  /** Fetched only when a facilitator downloads, so the round history stays out of the poll. */
+  async getExport(token: string, gameId: string) {
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
+    const report = this.buildReport(session)
+    const historyById = new Map(
+      this.getParticipantsForGame(session.id)
+        .filter((member) => member.role === 'player' && member.state)
+        .map((member) => [
+          member.id,
+          [...member.state!.history, getRoundSummary(member.state!)],
+        ]),
+    )
+    return {
+      ...report,
+      players: report.players.map((player) => ({
+        ...player,
+        history: historyById.get(player.id) ?? [],
+      })),
+    }
   }
 
   async cleanupExpiredData() {

@@ -3,6 +3,7 @@ import type {
   PlayerCommand,
   PlayerCommandResponse,
   TeamCredentials,
+  TeamExport,
   TeamReport,
   TeamSessionSnapshot,
 } from './types'
@@ -125,6 +126,10 @@ export const teamApi = {
 
   getReport(gameId: string) {
     return request<TeamReport>(`/api/games/${gameId}/report`)
+  },
+
+  getExport(gameId: string) {
+    return request<TeamExport>(`/api/games/${gameId}/export`)
   },
 
   readmitParticipant(gameId: string, participantId: string) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { podium, rankPlayers, rankSnapshot } from './leaderboard'
+import { SORT_KEYS, podium, rankPlayers, rankSnapshot, sortLeaderboard } from './leaderboard'
 import type { TeamPlayerReport } from './types'
 
 const player = (
@@ -112,5 +112,53 @@ describe('facilitator leaderboard', () => {
       'Cy',
       'Di',
     ])
+  })
+})
+
+describe('leaderboard sorting', () => {
+  const ranked = () => rankPlayers([
+    player('a', 'Cy', 100),
+    player('b', 'Ada', 300),
+    player('c', 'Bo', 200),
+  ])
+
+  it('sorts by name without disturbing the rank each player earned', () => {
+    const sorted = sortLeaderboard(ranked(), 'name', 'asc')
+
+    expect(sorted.map((entry) => entry.player.name)).toEqual(['Ada', 'Bo', 'Cy'])
+    expect(sorted.map((entry) => entry.rank)).toEqual([1, 2, 3])
+  })
+
+  it('reverses on the second click', () => {
+    const ascending = sortLeaderboard(ranked(), 'score', 'asc')
+    const descending = sortLeaderboard(ranked(), 'score', 'desc')
+
+    expect(ascending.map((entry) => entry.player.name)).toEqual(['Cy', 'Bo', 'Ada'])
+    expect(descending.map((entry) => entry.player.name)).toEqual(['Ada', 'Bo', 'Cy'])
+  })
+
+  it('keeps a stable order when a column ties', () => {
+    const tied = rankPlayers([
+      player('z', 'Zed', 50),
+      player('a', 'Ada', 50),
+      player('m', 'Mo', 50),
+    ])
+
+    expect(sortLeaderboard(tied, 'score', 'desc').map((entry) => entry.player.name))
+      .toEqual(['Ada', 'Mo', 'Zed'])
+  })
+
+  it('never mutates the array it was given', () => {
+    const original = ranked()
+    const before = original.map((entry) => entry.player.id)
+    sortLeaderboard(original, 'name', 'desc')
+
+    expect(original.map((entry) => entry.player.id)).toEqual(before)
+  })
+
+  it('handles every offered sort key', () => {
+    for (const key of SORT_KEYS) {
+      expect(sortLeaderboard(ranked(), key, 'asc')).toHaveLength(3)
+    }
   })
 })
