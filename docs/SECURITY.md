@@ -55,9 +55,11 @@ The parallel deployment is hardened for teaching use, not for handling sensitive
 
 Outstanding before this could be considered production-grade for anything beyond a classroom:
 
-- **MariaDB port 3306 is still open to `0.0.0.0/0`** on `sg-0ee12fcdc7dc5f5d4`, inherited from
-  the original deployment. The old game reaches it over loopback, so the rule can be removed.
-- The legacy plaintext credential has still not been rotated.
+- Inbound rules inherited from the original deployment still need tightening.
+- Credential rotation for the original system remains outstanding.
 - No managed secret injection, no automated backups, no alarms, and no redundancy.
+
+Live findings, hostnames and resource identifiers are tracked privately rather than in this
+repository.
 
 AWS deployment still requires private networking, managed secret injection, backup policy, alarms, and legacy credential rotation before public cutover.

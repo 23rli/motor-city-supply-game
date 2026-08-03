@@ -45,19 +45,29 @@ because nginx owns `:80`. Caddy renews them automatically.
 The instance has no permanent SSH key. Access goes through EC2 Instance Connect from AWS
 CloudShell, which issues a key valid for 60 seconds — so the two commands must stay chained.
 
+CloudShell has to be in the same region as the instance, or the availability zone will not
+resolve. Rather than hard-coding it, look the instance up:
+
 ```bash
-INSTANCE=i-03556a1e691eb51d8
-AZ=us-east-2a
+export AWS_DEFAULT_REGION=<region>
+INSTANCE=<instance-id>
+
+INFO=$(aws ec2 describe-instances --instance-ids "$INSTANCE" \
+  --query 'Reservations[0].Instances[0].[Placement.AvailabilityZone,PublicIpAddress]' \
+  --output text)
+AZ=$(echo "$INFO" | awk '{print $1}')
+IP=$(echo "$INFO" | awk '{print $2}')
 
 [ -f ~/.ssh/mc ] || ssh-keygen -t ed25519 -N '' -f ~/.ssh/mc
 aws ec2-instance-connect send-ssh-public-key \
-  --instance-id $INSTANCE --instance-os-user ec2-user \
-  --availability-zone $AZ --ssh-public-key file://$HOME/.ssh/mc.pub >/dev/null \
-&& ssh -i ~/.ssh/mc -o StrictHostKeyChecking=no ec2-user@3.129.12.15
+  --instance-id "$INSTANCE" --instance-os-user ec2-user \
+  --availability-zone "$AZ" --ssh-public-key "file://$HOME/.ssh/mc.pub" >/dev/null \
+&& ssh -i ~/.ssh/mc -o StrictHostKeyChecking=no "ec2-user@$IP"
 ```
 
 `~` is not expanded inside `file://`, hence `$HOME`. The two commands are chained because the
-pushed key expires after 60 seconds.
+pushed key expires after 60 seconds. Avoid `exit` in a pasted block — it closes the CloudShell
+session rather than stopping the script.
 
 `sudo` needs no password.
 
@@ -159,9 +169,11 @@ Sessions older than 12 hours are cleared automatically.
 
 ## Known gaps
 
-- **Port 3306 is open to `0.0.0.0/0`** on security group `sg-0ee12fcdc7dc5f5d4`. The old game
-  reaches MariaDB over loopback, so removing that inbound rule is safe and should be done. Leave
-  port 22 alone — Instance Connect needs it.
+- **Inbound rules inherited from the original deployment still need tightening.** The database
+  the old game uses is reachable over loopback, so its public inbound rule can be removed.
+  Leave port 22 alone — Instance Connect needs it.
 - **One instance, no redundancy.** A class in progress would be interrupted by an instance
   failure. Acceptable for teaching use; not for anything else.
 - **Backups are manual.** Take a dump before anything unusual.
+
+Specific instance, security-group and account identifiers are deliberately not recorded here.

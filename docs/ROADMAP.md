@@ -2,11 +2,11 @@
 
 ## Milestone 0: audit and containment
 
-Status: audited; one port rule still open.
+Status: audited; inbound rules still to tighten.
 
 - preserve the existing deployment during the rebuild — done, it still serves `:80`
 - rotate the exposed database credential
-- restrict database and application ports — **outstanding: 3306 is still open to `0.0.0.0/0`**
+- restrict database and application ports — outstanding
 - capture a read-only schema and sanitized migration fixture
 
 ## Milestone 1: playable parity slice
