@@ -271,5 +271,6 @@ describe('PostgreSQL session persistence', () => {
     })
     expect(finishedRejoin.statusCode).toBe(200)
     expect(finishedRejoin.json().game.status).toBe('finished')
-  }, 20_000)
+    // Starting PGlite twice takes about 19s, so leave headroom for a loaded machine.
+  }, 60_000)
 })
