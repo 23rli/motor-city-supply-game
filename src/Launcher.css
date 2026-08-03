@@ -598,7 +598,7 @@
 .end-settings { padding: 0 18px 12px; display: grid; gap: 14px; }
 .end-settings label { min-width: 0; display: grid; gap: 5px; }
 .end-settings span { color: #253330; font-size: 14px; font-weight: 700; }
-.end-settings em { color: #5b6864; font-size: 12px; font-style: normal; }
+.end-settings em { margin-top: -2px; color: #5b6864; font-size: 12px; font-style: normal; }
 .end-settings input { width: 100%; min-height: 44px; padding: 0 10px; color: #17201e; font-size: 16px; background: #f8f9f8; border: 1px solid #b8c3bf; border-radius: 4px; }
 
 .end-confirm { padding: 0 18px 14px; }

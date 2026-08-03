@@ -284,13 +284,8 @@ export function TeamSession({
           <div><h1>Motor City</h1><p>{snapshot.participant.role} console</p></div>
         </div>
         <div className={`sync-state sync-${connectionState}`}><Radio size={14} aria-hidden="true" /><span>{connectionState}</span></div>
-        <button
-          className="button button-quiet"
-          type="button"
-          title="Closes this screen. The session keeps running and you can come back to it."
-          onClick={onExit}
-        >
-          <ArrowLeft size={17} aria-hidden="true" /> Leave
+        <button className="button button-quiet" type="button" onClick={onExit}>
+          <ArrowLeft size={17} aria-hidden="true" /> Back to menu
         </button>
       </header>
 
@@ -339,7 +334,6 @@ export function TeamSession({
               <button
                 className="icon-button"
                 type="button"
-                title="Copy recovery code"
                 aria-label="Copy recovery code"
                 onClick={() => void navigator.clipboard.writeText(recoveryCode)}
               >
@@ -383,23 +377,23 @@ export function TeamSession({
                     <div className="end-settings">
                       <label>
                         <span>Score up to round</span>
+                        <em>Revenue counts through this round</em>
                         <input
                           type="number"
                           min="1"
                           value={endRound}
                           onChange={(event) => setEndRound(Math.max(1, Number(event.target.value)))}
                         />
-                        <em>Revenue is counted through this round.</em>
                       </label>
                       <label>
                         <span>Charge unfinished cars at round</span>
+                        <em>Cars still on the floor cost money</em>
                         <input
                           type="number"
                           min="1"
                           value={penaltyRound}
                           onChange={(event) => setPenaltyRound(Math.max(1, Number(event.target.value)))}
                         />
-                        <em>Cars still on the floor at this round cost money.</em>
                       </label>
                     </div>
 
