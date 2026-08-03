@@ -454,6 +454,78 @@ describe('multiplayer API', () => {
     expect(abandoned.json().error.message).toContain('somewhere else')
   })
 
+  it('exports the full round history after the session is locked', async () => {
+    const app = makeApp()
+    const created = await createSession(app)
+    const player = await joinSession(app, created.game.code, 'Rowan')
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/start`,
+      headers: auth(created.cookie),
+    })
+
+    // Play a couple of rounds so there is something worth exporting.
+    for (let version = 0; version < 2; version += 1) {
+      await app.inject({
+        method: 'POST',
+        url: '/api/player/commands',
+        headers: auth(player.cookie),
+        payload: {
+          expectedVersion: version * 2,
+          idempotencyKey: randomUUID(),
+          command: { type: 'allocate' },
+        },
+      })
+      await app.inject({
+        method: 'POST',
+        url: '/api/player/commands',
+        headers: auth(player.cookie),
+        payload: {
+          expectedVersion: version * 2 + 1,
+          idempotencyKey: randomUUID(),
+          command: { type: 'advance' },
+        },
+      })
+    }
+
+    const ended = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/end`,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 1, endRound: 2 },
+    })
+    expect(ended.json().game.status).toBe('finished')
+
+    // The whole point: the export still works once the game is locked.
+    const exported = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/export`,
+      headers: auth(created.cookie),
+    })
+    expect(exported.statusCode).toBe(200)
+
+    const [exportedPlayer] = exported.json().players
+    expect(exportedPlayer.name).toBe('Rowan')
+    expect(exportedPlayer.history.length).toBeGreaterThan(1)
+    expect(exportedPlayer.peakWip).toBeDefined()
+    expect(exportedPlayer.averageWip).toBeDefined()
+
+    const [firstRound] = exportedPlayer.history
+    expect(firstRound.stations).toBeDefined()
+    expect(firstRound.issuedResources).toBeDefined()
+    expect(firstRound.convertedResources).toBeDefined()
+
+    // A player must not be able to pull everyone else's record.
+    const asPlayer = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/export`,
+      headers: auth(player.cookie),
+    })
+    expect(asPlayer.statusCode).toBe(403)
+    expect(asPlayer.json().error.code).toBe('FACILITATOR_REQUIRED')
+  })
+
   it('rotates recovery credentials and revokes browser sessions', async () => {
     const app = makeApp()
     const created = await createSession(app)
