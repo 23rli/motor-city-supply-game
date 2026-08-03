@@ -51,12 +51,15 @@ The parallel deployment is hardened for teaching use, not for handling sensitive
   source control. It is not yet in a managed secret store.
 - The service runs as an unprivileged user under a systemd sandbox with `NoNewPrivileges`,
   `ProtectSystem=strict`, `ProtectHome`, and a restricted address family set.
-- Deploys pull over SSH with a read-only deploy key, so the repository stays private.
+- Inbound access is limited to HTTP, HTTPS, SSH and ICMP. No database port is reachable from
+  outside the instance, for either the new stack or the original one.
+- Deploys pull over SSH with a read-only deploy key.
 
 Outstanding before this could be considered production-grade for anything beyond a classroom:
 
-- Inbound rules inherited from the original deployment still need tightening.
-- Credential rotation for the original system remains outstanding.
+- SSH accepts connections from any address; it only needs the EC2 Instance Connect range.
+- Credential rotation for the original system remains outstanding. The credential is no longer
+  reachable from the internet, but it is still published and should be retired.
 - No managed secret injection, no automated backups, no alarms, and no redundancy.
 
 Live findings, hostnames and resource identifiers are tracked privately rather than in this

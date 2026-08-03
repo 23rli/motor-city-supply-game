@@ -169,11 +169,12 @@ Sessions older than 12 hours are cleared automatically.
 
 ## Known gaps
 
-- **Inbound rules inherited from the original deployment still need tightening.** The database
-  the old game uses is reachable over loopback, so its public inbound rule can be removed.
-  Leave port 22 alone — Instance Connect needs it.
+- **SSH is reachable from any address.** It only needs to accept EC2 Instance Connect, so it
+  could be narrowed to that service's managed prefix list for the region.
 - **One instance, no redundancy.** A class in progress would be interrupted by an instance
   failure. Acceptable for teaching use; not for anything else.
 - **Backups are manual.** Take a dump before anything unusual.
 
-Specific instance, security-group and account identifiers are deliberately not recorded here.
+Inbound access is limited to HTTP, HTTPS, SSH and ICMP; no database port is reachable from
+outside the instance. Specific instance, security-group and account identifiers are
+deliberately not recorded here.
