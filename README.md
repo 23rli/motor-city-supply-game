@@ -2,11 +2,20 @@
 
 A modern rebuild of the Motor City supply-chain simulation. The rules remain compatible with the original game while the interface, accessibility, reliability, security, and deployment model are being replaced.
 
-This repository is private during development. The original `23rli/PullingSupplyGame` repository and its AWS deployment are intentionally untouched.
+This repository is private. The original `23rli/PullingSupplyGame` repository is untouched, and its
+deployment still serves the old game on the same hostname over HTTP.
+
+| | Address |
+| --- | --- |
+| New game | https://motorcity.boeingcenter.com |
+| Old game | http://motorcity.boeingcenter.com |
+
+Running a class: [docs/FACILITATOR.md](docs/FACILITATOR.md).
+Deploying and looking after the server: [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Current milestone
 
-The local overhaul now includes:
+The rebuild is live alongside the original and covers:
 
 - all four original car recipes and economics
 - Planning, Manufacturing, Assembly, Quality, Paint, and Done stages
@@ -22,12 +31,20 @@ The local overhaul now includes:
 - independent player factories sharing one facilitator schedule
 - create, join, secure rejoin, start, end, roster, and leaderboard flows
 - facilitator-selected WIP and report cutoff rounds
+- live ranked leaderboard with ties, movement, podium, and sortable columns
+- optional student identifiers carried through to the results
+- per-round station and resource breakdowns, peak and average WIP, and throughput
+- cohort low/high/median/mean statistics
+- a dependency-free multi-sheet Excel export, plus the original CSV
+- a projector view showing place, name, turn, and revenue only
+- facilitator removal and recovery-code reissue for players
 - authoritative server commands with optimistic versions and idempotency
 - HttpOnly 12-hour sessions, revocation, and rotating recovery codes
-- embedded PostgreSQL locally and pooled TLS PostgreSQL in production
-- a same-origin hardened container runtime with CSP and rate limiting
+- embedded PostgreSQL locally and pooled PostgreSQL in production
+- a same-origin hardened runtime with CSP and rate limiting
 
-AWS account infrastructure, legacy credential containment, migration rehearsal, and production cutover remain intentionally unexecuted. See [docs/ROADMAP.md](docs/ROADMAP.md).
+DNS cutover and retirement of the old game remain deliberately unexecuted. See
+[docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Run locally
 
@@ -53,9 +70,16 @@ npm audit
 
 ## Production runtime
 
-Production requires managed PostgreSQL and never falls back to local disk. Inject `DATABASE_URL` and `DATABASE_SSL_CA` from the managed secret/configuration system, run `npm run db:migrate:built` once, then start the application with `npm run start:api`.
+The deployed stack runs directly on the instance: a private Node.js runtime, PostgreSQL on
+loopback, and Caddy terminating TLS on `:443`. `deploy/install.sh` prepares a box,
+`deploy/update.sh` ships a version and rolls back if it fails its health check, and
+`deploy/rollback.sh` steps back one version. Full detail in
+[docs/OPERATIONS.md](docs/OPERATIONS.md).
 
-Build the single-origin web/API image with `docker build -t motor-city-supply-game .`. The container runs as the unprivileged Node user and exposes port `3001`.
+A container image is also available for environments that prefer one: build with
+`docker build -t motor-city-supply-game .`. It runs as the unprivileged Node user and exposes
+port `3001`. Either way, production requires managed PostgreSQL via `DATABASE_URL` and never
+falls back to local disk.
 
 ## Structure
 
@@ -73,9 +97,15 @@ server/
 docs/
   API.md             HTTP and session contract
   ARCHITECTURE.md    Ownership and deployment boundaries
+  FACILITATOR.md     Running a class session
+  OPERATIONS.md      Deploying and looking after the server
   PARITY.md          Preserved gameplay contract
   ROADMAP.md         Approved phased delivery plan
   SECURITY.md        Immediate and target security posture
+deploy/
+  install.sh         First-time setup, alongside the old game
+  update.sh          Ship a version, with automatic rollback
+  rollback.sh        Step back one version
 ```
 
 ## Design principles

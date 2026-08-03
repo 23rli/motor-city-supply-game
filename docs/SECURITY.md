@@ -40,4 +40,24 @@ These actions are intentionally not automated here because they affect the runni
 - Reports use transactional snapshots, and facilitator-selected report rounds are bounded by available play.
 - Managed PostgreSQL requires a trusted TLS CA; production cannot use the embedded database.
 
+## Deployed posture
+
+The parallel deployment is hardened for teaching use, not for handling sensitive data.
+
+- TLS terminates at Caddy on `:443` with automatically renewed Let's Encrypt certificates.
+- The application binds to loopback only and is reachable solely through Caddy.
+- PostgreSQL listens on loopback and authenticates with `scram-sha-256`.
+- The database URL lives in `/etc/motor-city.env`, mode `600`, owned by root, and is never in
+  source control. It is not yet in a managed secret store.
+- The service runs as an unprivileged user under a systemd sandbox with `NoNewPrivileges`,
+  `ProtectSystem=strict`, `ProtectHome`, and a restricted address family set.
+- Deploys pull over SSH with a read-only deploy key, so the repository stays private.
+
+Outstanding before this could be considered production-grade for anything beyond a classroom:
+
+- **MariaDB port 3306 is still open to `0.0.0.0/0`** on `sg-0ee12fcdc7dc5f5d4`, inherited from
+  the original deployment. The old game reaches it over loopback, so the rule can be removed.
+- The legacy plaintext credential has still not been rotated.
+- No managed secret injection, no automated backups, no alarms, and no redundancy.
+
 AWS deployment still requires private networking, managed secret injection, backup policy, alarms, and legacy credential rotation before public cutover.

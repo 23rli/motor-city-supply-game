@@ -2,11 +2,11 @@
 
 ## Milestone 0: audit and containment
 
-Status: audited; AWS containment still requires account-owner action.
+Status: audited; one port rule still open.
 
-- preserve the existing deployment during the rebuild
+- preserve the existing deployment during the rebuild — done, it still serves `:80`
 - rotate the exposed database credential
-- restrict database and application ports
+- restrict database and application ports — **outstanding: 3306 is still open to `0.0.0.0/0`**
 - capture a read-only schema and sanitized migration fixture
 
 ## Milestone 1: playable parity slice
@@ -33,29 +33,34 @@ Status: implemented and executable locally.
 
 ## Milestone 3: team and facilitator experience
 
-Status: implemented for local/staging pilots.
+Status: implemented.
 
 - short human-readable join codes and rotating recovery credentials
 - live facilitator roster, progress, revenue, and WIP
 - facilitator start, end, timer, and penalty controls
-- final comparison report and spreadsheet-compatible export
+- ranked leaderboard, cohort statistics, and per-round station detail
+- projector view for the room, showing place, name, turn, and revenue only
+- final comparison report, Excel workbook, and spreadsheet-compatible export
 - resilient polling with exponential backoff and visible connection state
 
-## Milestone 4: AWS staging
+## Milestone 4: AWS deployment
 
-Status: application runtime prepared; AWS resources are not deployed.
+Status: deployed in parallel with the original.
 
-- provision HTTPS load balancing, private application networking, managed PostgreSQL, secret injection, and protected deployment environments
-- HTTPS-only edge and API endpoints
-- private database networking and managed secrets
-- least-privilege identities, logs, metrics, alarms, and backups
-- run the explicit migration task before rolling out the application task
+- the new game serves HTTPS on the existing hostname; the original keeps HTTP
+- Let's Encrypt certificates over TLS-ALPN, renewed automatically
+- PostgreSQL on loopback, application bound to loopback behind Caddy
+- a private Node.js runtime so the original's system Node is never disturbed
+- scripted install, update with automatic rollback, and rollback
+
+Still outstanding: load balancing and redundancy, managed database, secret injection,
+alarms, and automated backups. See [OPERATIONS.md](OPERATIONS.md#known-gaps).
 
 ## Milestone 5: migration and production cutover
 
 Status: planned.
 
+- pilot the new game with a live class
 - validate legacy data mapping against facilitator reports
 - performance, accessibility, and browser acceptance testing
-- pilot game with rollback plan
 - approved DNS cutover and legacy retirement window
