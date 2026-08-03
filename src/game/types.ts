@@ -34,6 +34,17 @@ export interface GameConfig {
   wipPenalty: ModelValues
 }
 
+/** Where cars were standing at the close of a round. "dry" is paint that has finished curing. */
+export const ROUND_STATIONS = [
+  'planning',
+  'manufacturing',
+  'assembly',
+  'quality',
+  'paint',
+  'dry',
+] as const
+export type RoundStation = (typeof ROUND_STATIONS)[number]
+
 export interface RoundSummary {
   round: number
   completed: ModelValues
@@ -41,6 +52,9 @@ export interface RoundSummary {
   wip: ModelValues
   projectedPenalty: number
   unusedResources: ResourcePool
+  stations: Record<RoundStation, ModelValues>
+  issuedResources: ResourcePool
+  convertedResources: ResourcePool
 }
 
 export interface GameSnapshot {

@@ -11,6 +11,7 @@ import {
   type ModelValues,
   type Resource,
   type ResourcePool,
+  type RoundStation,
   type RoundSummary,
   type Stage,
 } from './types'
@@ -183,6 +184,27 @@ export function getProjectedPenalty(state: GameState): number {
   )
 }
 
+/** Cars per model at each station, splitting the paint booth into still-curing and dry. */
+export function getStationCounts(state: GameState): Record<RoundStation, ModelValues> {
+  const empty = (): ModelValues => ({ blue: 0, green: 0, red: 0, yellow: 0 })
+  const stations = {
+    planning: empty(),
+    manufacturing: empty(),
+    assembly: empty(),
+    quality: empty(),
+    paint: empty(),
+    dry: empty(),
+  }
+  for (const car of activeCars(state)) {
+    if (car.stage === 'done') continue
+    const station: RoundStation = car.stage === 'paint'
+      ? car.ready ? 'dry' : 'paint'
+      : car.stage
+    stations[station][car.model] += 1
+  }
+  return stations
+}
+
 export function getRoundSummary(state: GameState): RoundSummary {
   return {
     round: state.round,
@@ -191,6 +213,11 @@ export function getRoundSummary(state: GameState): RoundSummary {
     wip: getWip(state),
     projectedPenalty: getProjectedPenalty(state),
     unusedResources: clonePool(state.resources),
+    stations: getStationCounts(state),
+    issuedResources: clonePool(
+      state.config.resourceSchedule[state.round] ?? EMPTY_RESOURCES,
+    ),
+    convertedResources: clonePool(state.convertedResources),
   }
 }
 

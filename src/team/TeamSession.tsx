@@ -19,6 +19,7 @@ import MotorCityApp from '../MotorCityApp'
 import { CohortBoard } from '../components/CohortBoard'
 import { ApiClientError, teamApi } from './api'
 import { podium, rankPlayers, rankSnapshot } from './leaderboard'
+import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
 import type {
   PlayerCommand,
   TeamReport,
@@ -64,6 +65,10 @@ export function TeamSession({
     previousRanks.current = rankSnapshot(leaderboard)
   }, [leaderboard])
   const finished = snapshot?.game.status === 'finished'
+  const gameStats = useMemo(
+    () => summarizeGameStats(report?.players ?? []),
+    [report],
+  )
 
   useEffect(() => {
     if (!showResumed) return
@@ -459,6 +464,41 @@ export function TeamSession({
                 </tbody>
               </table>
             </div>
+
+            {finished && leaderboard.length > 0 && (
+              <div className="game-stats">
+                <h3>Cohort statistics</h3>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Measure</th>
+                        <th scope="col">Lowest</th>
+                        <th scope="col">Highest</th>
+                        <th scope="col">Median</th>
+                        <th scope="col">Mean</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {GAME_STAT_ROWS.map((row) => {
+                        const spread = gameStats[row.key]
+                        const show = (value: number) =>
+                          row.money ? `$${value.toFixed(2)}` : Math.round(value * 100) / 100
+                        return (
+                          <tr key={row.key}>
+                            <td>{row.label}</td>
+                            <td>{show(spread.low)}</td>
+                            <td>{show(spread.high)}</td>
+                            <td>{show(spread.median)}</td>
+                            <td>{show(spread.mean)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </main>

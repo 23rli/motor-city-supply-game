@@ -603,6 +603,11 @@
 
 .leaderboard-spread { color: #687773; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; }
 .leaderboard-identifier { display: block; color: #7b8783; font-size: 11px; font-weight: 400; }
+.game-stats { padding: 16px 18px 4px; border-top: 1px solid var(--line, #dde4e1); }
+.game-stats h3 { margin: 0 0 10px; font: 700 14px/1 var(--font-display); letter-spacing: 0.02em; }
+.game-stats td:first-child { font-weight: 600; }
+.statistics-hint { margin: 0 0 10px; color: #5c6b66; font-size: 12px; }
+.station-busy { font-weight: 700; background: #eef5f1; }
 .leaderboard-rank { display: inline-flex; gap: 3px; align-items: center; }
 .leaderboard-leader td { background: #f2f8f5; }
 .leaderboard-leader td:nth-child(2) { font-weight: 750; }

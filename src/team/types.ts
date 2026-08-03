@@ -69,6 +69,9 @@ export interface TeamPlayerReport {
   lastSeenAt: string
   scoredThroughRound: number
   penaltyMeasuredAtRound: number
+  peakWip: number
+  averageWip: number
+  throughput: number
   currentRound: number
   stranded: ResourcePool
   paint: { occupancy: number; curing: boolean; cured: number }

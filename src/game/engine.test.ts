@@ -16,12 +16,13 @@ import {
   getMoveError,
   getPaintBoothStatus,
   getRevenue,
+  getStationCounts,
   getWip,
   moveCar,
   repositionCar,
   resetRound,
 } from './engine'
-import { STAGES } from './types'
+import { ROUND_STATIONS, STAGES, type GameState } from './types'
 
 const abundantRounds = Array.from({ length: 12 }, () => ({
   red: 20,
@@ -488,5 +489,61 @@ describe('sliding a car within its station', () => {
     expect(getBoardActionError(state, car.id, car.stage, car.row)).toBe(
       'That car is already in that lane.',
     )
+  })
+})
+
+describe('round record', () => {
+  const totalOf = (values: Record<string, number>) =>
+    Object.values(values).reduce((sum, value) => sum + value, 0)
+
+  const stationTotal = (state: GameState) =>
+    ROUND_STATIONS.reduce(
+      (sum, station) => sum + totalOf(getStationCounts(state)[station]),
+      0,
+    )
+
+  it('counts every car still on the floor exactly once', () => {
+    let state = createGame({ enabledModels: ['blue', 'green', 'red', 'yellow'] })
+    const onFloor = () => state.cars.filter((car) => car.stage !== 'done').length
+
+    expect(stationTotal(state)).toBe(onFloor())
+
+    for (let round = 0; round < 4; round += 1) {
+      for (const car of state.cars.filter((item) => item.stage === 'planning').slice(0, 2)) {
+        const result = moveCar(state, car.id, 'manufacturing', car.row)
+        if (!result.error) state = result.state
+      }
+      state = allocateResources(state)
+      state = advanceRound(state)
+      expect(stationTotal(state)).toBe(onFloor())
+    }
+  })
+
+  it('separates cars still curing from cars that have dried', () => {
+    const prepared = prepareCarsAtQuality(['green'])
+    let state = prepared.state
+    const [carId] = prepared.carIds
+    state = moveCar(state, carId, 'paint', 0).state
+
+    expect(totalOf(getStationCounts(state).paint)).toBe(1)
+    expect(totalOf(getStationCounts(state).dry)).toBe(0)
+
+    state = allocateResources(state)
+    state = advanceRound(state)
+    state = allocateResources(state)
+    state = advanceRound(state)
+
+    expect(totalOf(getStationCounts(state).dry)).toBe(getPaintBoothStatus(state).cured)
+  })
+
+  it('records the resources issued and exchanged alongside what was left over', () => {
+    let state = createGame({ enabledModels: ['green'] })
+    state = allocateResources(state)
+    state = advanceRound(state)
+
+    const [first] = state.history
+    expect(first.issuedResources).toEqual(state.config.resourceSchedule[0])
+    expect(first.convertedResources).toBeDefined()
+    expect(first.unusedResources).toBeDefined()
   })
 })
