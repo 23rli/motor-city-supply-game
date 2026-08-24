@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   BarChart3,
   BookOpen,
+  Boxes,
   Factory,
   Flag,
   Gauge,
@@ -18,7 +19,7 @@ import { ConverterPanel } from './components/ConverterPanel'
 import { EndRunPanel } from './components/EndRunPanel'
 import { GameBoard } from './components/GameBoard'
 import { Modal } from './components/Modal'
-import { NewRunPanel, type ResourcePlan } from './components/NewRunPanel'
+import { NewRunPanel } from './components/NewRunPanel'
 import { RecipePanel } from './components/RecipePanel'
 import { RoundBriefing } from './components/RoundBriefing'
 import { StatisticsPanel } from './components/StatisticsPanel'
@@ -27,10 +28,8 @@ import {
   allocateResources,
   convertResources,
   createGame,
-  createRandomResourceSchedule,
   getCarStatus,
   getCompleted,
-  getProjectedPenalty,
   getRevenue,
   getWip,
   moveCar,
@@ -39,8 +38,8 @@ import {
 } from './game/engine'
 import {
   RESOURCES,
-  type CarModel,
   type GameState,
+  type GameSetup,
   type Resource,
   type ResourcePool,
   type Stage,
@@ -48,6 +47,7 @@ import {
 import type { PlayerCommand } from './team/types'
 
 const STORAGE_KEY = 'motor-city-demo-game-v1'
+const ENDED_STORAGE_KEY = 'motor-city-demo-game-ended-v1'
 
 type NoticeTone = 'info' | 'error' | 'success'
 
@@ -64,11 +64,50 @@ const OPENING_NOTICE: Notice = {
 function loadGame(): GameState {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) return JSON.parse(saved) as GameState
+    if (saved) {
+      const game = JSON.parse(saved) as GameState
+      return {
+        ...game,
+        config: createGame({
+          ...game.config,
+          notes: game.config.notes ?? '',
+        }).config,
+      }
+    }
   } catch {
     localStorage.removeItem(STORAGE_KEY)
   }
   return createGame()
+}
+
+const loadSoloEnded = () =>
+  localStorage.getItem(STORAGE_KEY) !== null
+  && localStorage.getItem(ENDED_STORAGE_KEY) === '1'
+
+interface ConfirmationPanelProps {
+  message: string
+  confirmLabel: string
+  busy: boolean
+  onCancel: () => void
+  onConfirm: () => void | Promise<void>
+}
+
+function ConfirmationPanel({
+  message,
+  confirmLabel,
+  busy,
+  onCancel,
+  onConfirm,
+}: ConfirmationPanelProps) {
+  return (
+    <div className="confirmation-panel">
+      <p>{message}</p>
+      <div className="modal-actions">
+        <button className="button button-secondary" type="button" onClick={onCancel} disabled={busy}>Keep playing</button>
+        <button className="button button-danger" type="button" onClick={() => void onConfirm()} disabled={busy}>{confirmLabel}</button>
+      </div>
+    </div>
+  )
 }
 
 export interface RemoteGameController {
@@ -85,12 +124,14 @@ interface MotorCityAppProps {
 
 function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
   const [soloGame, setSoloGame] = useState<GameState>(loadGame)
+  const [soloEnded, setSoloEnded] = useState(loadSoloEnded)
   const [selectedCarId, setSelectedCarId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice>(OPENING_NOTICE)
   const [busy, setBusy] = useState(false)
   const game = remote?.game ?? soloGame
   const [activeModal, setActiveModal] = useState<
-    'new-run' | 'recipes' | 'converter' | 'statistics' | 'end-run' | 'briefing' | null
+    'new-run' | 'recipes' | 'converter' | 'statistics' | 'end-run' | 'briefing'
+    | 'confirm-reset' | 'confirm-advance' | 'confirm-end' | null
   >(null)
 
   const announce = useCallback(
@@ -101,6 +142,10 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
   useEffect(() => {
     if (!remote) localStorage.setItem(STORAGE_KEY, JSON.stringify(soloGame))
   }, [remote, soloGame])
+
+  useEffect(() => {
+    if (!remote) localStorage.setItem(ENDED_STORAGE_KEY, soloEnded ? '1' : '0')
+  }, [remote, soloEnded])
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -156,6 +201,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         `Car moved to ${stage}.`,
       )
       if (!error) setSelectedCarId(null)
+      if (!error) setActiveModal(null)
       return
     }
     const result = moveCar(game, carId, stage, row)
@@ -236,19 +282,25 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     }
     setSoloGame((current) => resetRound(current))
     setSelectedCarId(null)
+    setActiveModal(null)
     announce('Round restored to its starting position.')
   }
 
-  const handleNewGame = (models: CarModel[], resourcePlan: ResourcePlan) => {
-    setSoloGame(createGame({
-      enabledModels: models,
-      resourceSchedule: resourcePlan === 'random'
-        ? createRandomResourceSchedule()
-        : undefined,
-    }))
+  const handleNewGame = (setup: GameSetup) => {
+    setSoloGame(createGame(setup))
     setSelectedCarId(null)
+    setSoloEnded(false)
     setNotice(OPENING_NOTICE)
     setActiveModal(null)
+  }
+
+  const finishSoloRun = () => {
+    setSoloEnded(true)
+    setActiveModal(null)
+  }
+
+  const openNewRunFromSummary = () => {
+    setActiveModal('new-run')
   }
 
   const handleConvert = async (spend: ResourcePool, receive: Resource) => {
@@ -263,6 +315,52 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     setSoloGame(result.state)
     announce(`Four resources exchanged for one ${receive}.`, 'success')
     return null
+  }
+
+  if (!remote && soloEnded) {
+    return (
+      <div className="solo-finished-shell">
+        <header className="topbar">
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">
+              <Factory size={22} strokeWidth={1.8} />
+            </span>
+            <div><h1>Motor City</h1><p>Production complete</p></div>
+          </div>
+          <div className="shift-readout" aria-label="Final round">
+            <div><span>Final round</span><strong>{String(game.round + 1).padStart(2, '0')}</strong></div>
+          </div>
+          <div className="topbar-actions">
+            {onExit && (
+              <button className="button button-quiet" type="button" onClick={onExit}>
+                <LogOut size={17} aria-hidden="true" /> Home
+              </button>
+            )}
+            <button className="button button-quiet" type="button" onClick={openNewRunFromSummary}>
+              <Plus size={17} aria-hidden="true" /> New run
+            </button>
+          </div>
+        </header>
+        <main className="solo-finished-main">
+          <section className="solo-finished-panel" aria-labelledby="final-run-title">
+            <header>
+              <p>Through round {game.round + 1}</p>
+              <h2 id="final-run-title">Final run summary</h2>
+            </header>
+            <EndRunPanel
+              game={game}
+              showPenalty
+              allowDownload
+              onNewRun={openNewRunFromSummary}
+              onExit={onExit}
+            />
+          </section>
+        </main>
+        <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>
+          <NewRunPanel config={game.config} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
+        </Modal>
+      </div>
+    )
   }
 
   return (
@@ -337,7 +435,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
           <div><PackageCheck size={18} /><span>Completed</span><strong>{completedTotal}</strong></div>
           <div><Gauge size={18} /><span>Work in process</span><strong>{wipTotal}</strong></div>
           <div><BarChart3 size={18} /><span>Revenue</span><strong>${getRevenue(game).toFixed(2)}</strong></div>
-          <div><i className="penalty-dot" /><span>WIP exposure</span><strong>${getProjectedPenalty(game).toFixed(2)}</strong></div>
+          <div><Boxes size={18} /><span>Materials on hand</span><strong>{RESOURCES.reduce((sum, resource) => sum + game.resources[resource], 0)}</strong></div>
         </section>
 
         <div className="board-heading">
@@ -371,21 +469,22 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
       </main>
 
       <footer className="command-dock">
-        <button className="button button-quiet" type="button" onClick={handleReset} disabled={busy}>
+        <button className="button button-quiet" type="button" onClick={() => setActiveModal('confirm-reset')} disabled={busy}>
           <RotateCcw size={17} aria-hidden="true" /> Reset round
         </button>
         <p className={`dock-notice notice-${notice.tone}`} role="status" aria-live="polite">
           {notice.message}
         </p>
-        <button className="button button-end" type="button" onClick={() => setActiveModal('end-run')}>
+        <button className="button button-end" type="button" onClick={() => setActiveModal(remote ? 'end-run' : 'confirm-end')}>
           <Flag size={16} aria-hidden="true" /> {remote ? 'Summary' : 'End run'}
         </button>
-        <button className="button button-next" type="button" onClick={handleAdvance} disabled={busy}>
+        <button className="button button-next" type="button" onClick={() => setActiveModal('confirm-advance')} disabled={busy}>
           Next round <ArrowRight size={18} aria-hidden="true" />
         </button>
       </footer>
 
-      <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>        <NewRunPanel enabledModels={game.config.enabledModels} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
+      <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>
+        <NewRunPanel config={game.config} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
       </Modal>
       <Modal
         open={activeModal === 'briefing'}
@@ -408,12 +507,45 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
       <Modal open={activeModal === 'statistics'} eyebrow="Run performance" title="Round statistics" onClose={() => setActiveModal(null)} wide>
         <StatisticsPanel game={game} />
       </Modal>
-      <Modal open={activeModal === 'end-run'} eyebrow={`Through round ${game.round + 1}`} title="Run summary" onClose={() => setActiveModal(null)} wide>
+      <Modal open={activeModal === 'confirm-reset'} eyebrow="Restore checkpoint" title="Reset this round?" onClose={() => setActiveModal(null)}>
+        <ConfirmationPanel
+          message="This discards every move, allocation, and conversion made since this round began."
+          confirmLabel="Reset round"
+          busy={busy}
+          onCancel={() => setActiveModal(null)}
+          onConfirm={handleReset}
+        />
+      </Modal>
+      <Modal open={activeModal === 'confirm-advance'} eyebrow="Commit checkpoint" title={`Advance to round ${game.round + 2}?`} onClose={() => setActiveModal(null)}>
+        <ConfirmationPanel
+          message="This records the current factory state and delivers the next round of materials."
+          confirmLabel="Advance round"
+          busy={busy}
+          onCancel={() => setActiveModal(null)}
+          onConfirm={handleAdvance}
+        />
+      </Modal>
+      <Modal open={activeModal === 'confirm-end'} eyebrow="Finish solo run" title="End production?" onClose={() => setActiveModal(null)}>
+        <ConfirmationPanel
+          message="This locks the run and reveals the final score. You can download the results or start again from the summary."
+          confirmLabel="Finish run"
+          busy={false}
+          onCancel={() => setActiveModal(null)}
+          onConfirm={finishSoloRun}
+        />
+      </Modal>
+      <Modal
+        open={Boolean(remote) && activeModal === 'end-run'}
+        eyebrow={`Through round ${game.round + 1}`}
+        title="Run progress"
+        onClose={() => setActiveModal(null)}
+        wide
+      >
         <EndRunPanel
           game={game}
           onContinue={() => setActiveModal(null)}
-          onNewRun={remote ? remote.onExit : () => setActiveModal('new-run')}
-          newRunLabel={remote ? 'Leave team' : 'New run'}
+          onNewRun={remote?.onExit ?? (() => setActiveModal(null))}
+          newRunLabel="Leave team"
         />
       </Modal>
     </div>

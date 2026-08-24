@@ -72,6 +72,7 @@ export const SORT_KEYS = [
   'score',
   'peakWip',
   'averageWip',
+  'throughput',
 ] as const
 export type SortKey = (typeof SORT_KEYS)[number]
 export type SortDirection = 'asc' | 'desc'
@@ -87,6 +88,7 @@ const sortValue = (entry: RankedPlayer, key: SortKey): number | string => {
     case 'score': return entry.player.projectedScore
     case 'peakWip': return entry.player.peakWip
     case 'averageWip': return entry.player.averageWip
+    case 'throughput': return entry.player.throughput
   }
 }
 

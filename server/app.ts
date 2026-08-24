@@ -269,6 +269,18 @@ export function buildApp(
     )
   })
 
+  app.get('/api/games/:gameId/participants/:participantId/history', async (request) => {
+    const { gameId, participantId } = parse(
+      participantParamsSchema,
+      request.params,
+    )
+    return store.getPlayerHistory(
+      sessionToken(request),
+      gameId,
+      participantId,
+    )
+  })
+
   // Lets a facilitator hand a fresh code to a student whose device died mid-session.
   app.post('/api/games/:gameId/participants/:participantId/recovery', async (request) => {
     const { gameId, participantId } = parse(

@@ -30,15 +30,23 @@ const crc32 = (bytes: Uint8Array) => {
   return (crc ^ 0xFFFFFFFF) >>> 0
 }
 
+const isXmlCharacter = (code: number) =>
+  code === 0x09
+  || code === 0x0A
+  || code === 0x0D
+  || (code >= 0x20 && code <= 0xD7FF)
+  || (code >= 0xE000 && code <= 0xFFFD)
+  || (code >= 0x10000 && code <= 0x10FFFF)
+
+const stripInvalidXmlCharacters = (value: string) =>
+  [...value].filter((character) => isXmlCharacter(character.codePointAt(0)!)).join('')
+
 const escapeXml = (value: string) =>
-  value
+  stripInvalidXmlCharacters(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    // Excel rejects control characters outright, so drop the ones XML cannot carry.
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
 
 /** A1, B1 ... Z1, AA1. */
 export const columnName = (index: number) => {
@@ -53,15 +61,27 @@ export const columnName = (index: number) => {
 
 const FORBIDDEN_SHEET_CHARS = /[[\]:*?/\\]/g
 
+const truncateCharacters = (value: string, maximum: number) =>
+  [...value].slice(0, maximum).join('')
+
+const canonicalSheetName = (value: string) =>
+  [...stripInvalidXmlCharacters(value)]
+    .map((character) => character === '\t' || character === '\n' || character === '\r'
+      ? ' '
+      : character)
+    .join('')
+    .replace(FORBIDDEN_SHEET_CHARS, ' ')
+    .trim()
+
 /** Excel refuses names over 31 characters, containing []:*?/\, blank, or duplicated. */
 export function sheetName(raw: string, taken: Set<string>) {
-  let base = (raw || 'Sheet').replace(FORBIDDEN_SHEET_CHARS, ' ').trim().slice(0, 31)
+  let base = truncateCharacters(canonicalSheetName(raw || 'Sheet'), 31)
   if (!base) base = 'Sheet'
   let candidate = base
   let suffix = 2
   while (taken.has(candidate.toLowerCase())) {
     const tail = ` (${suffix})`
-    candidate = `${base.slice(0, 31 - tail.length)}${tail}`
+    candidate = `${truncateCharacters(base, 31 - tail.length)}${tail}`
     suffix += 1
   }
   taken.add(candidate.toLowerCase())

@@ -8,27 +8,38 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   wide?: boolean
+  extraWide?: boolean
+  dismissible?: boolean
 }
 
-export function Modal({ open, title, eyebrow, onClose, children, wide }: ModalProps) {
+export function Modal({
+  open,
+  title,
+  eyebrow,
+  onClose,
+  children,
+  wide,
+  extraWide,
+  dismissible = true,
+}: ModalProps) {
   const panelRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     if (!open) return
     panelRef.current?.focus()
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (dismissible && event.key === 'Escape') onClose()
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [open, onClose])
+  }, [dismissible, open, onClose])
 
   if (!open) return null
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
+    <div className="modal-backdrop" onMouseDown={dismissible ? onClose : undefined}>
       <section
-        className={`modal-panel${wide ? ' modal-wide' : ''}`}
+        className={`modal-panel${wide ? ' modal-wide' : ''}${extraWide ? ' modal-extra-wide' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -41,9 +52,11 @@ export function Modal({ open, title, eyebrow, onClose, children, wide }: ModalPr
             <p>{eyebrow}</p>
             <h2 id="modal-title">{title}</h2>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label={`Close ${title}`} title={`Close ${title}`}>
-            <X size={20} />
-          </button>
+          {dismissible && (
+            <button className="icon-button" type="button" onClick={onClose} aria-label={`Close ${title}`} title={`Close ${title}`}>
+              <X size={20} />
+            </button>
+          )}
         </header>
         <div className="modal-content">{children}</div>
       </section>

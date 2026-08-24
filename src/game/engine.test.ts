@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOARD_ROWS,
+  EVAN_RESOURCE_SCHEDULE,
   RECIPES,
   advanceRound,
   allocateResources,
@@ -62,6 +63,50 @@ describe('Motor City parity engine', () => {
     ])
   })
 
+  it('preserves the original 25-round team resource plan', () => {
+    expect(
+      EVAN_RESOURCE_SCHEDULE
+        .flatMap(({ red, yellow, blue }) => [red, yellow, blue])
+        .join(','),
+    ).toBe(
+      '8,6,2,7,4,3,10,6,1,6,2,2,6,2,1,9,2,3,7,7,2,5,4,4,5,6,3,'
+      + '3,3,4,4,2,1,5,5,3,3,6,2,6,1,3,1,3,2,2,2,2,7,5,2,4,3,4,5,6,3,'
+      + '4,8,3,8,7,2,7,6,3,6,3,2,5,6,4,5,8,2',
+    )
+  })
+
+  it('keeps the selected plan, notes, and economics with the run', () => {
+    const game = createGame({
+      enabledModels: ['green'],
+      resourcePlan: 'evan',
+      notes: 'Second-shift cohort',
+      revenue: { blue: 3, green: 12, red: 2.5, yellow: 2.5 },
+      wipPenalty: { blue: 1.5, green: 4, red: 1.25, yellow: 1.25 },
+    })
+
+    expect(game.config).toMatchObject({
+      enabledModels: ['green'],
+      resourcePlan: 'evan',
+      notes: 'Second-shift cohort',
+      revenue: { green: 12 },
+      wipPenalty: { green: 4 },
+    })
+    expect(game.config.resourceSchedule).toEqual(EVAN_RESOURCE_SCHEDULE)
+  })
+
+  it('infers plan metadata when normalizing legacy saved schedules', () => {
+    const randomSchedule = createRandomResourceSchedule(100, () => 0.5)
+    const paddedTeamSchedule = [
+      ...EVAN_RESOURCE_SCHEDULE,
+      { red: 0, yellow: 0, blue: 0 },
+    ]
+
+    expect(createGame({ resourceSchedule: randomSchedule }).config.resourcePlan)
+      .toBe('random')
+    expect(createGame({ resourceSchedule: paddedTeamSchedule }).config.resourcePlan)
+      .toBe('evan')
+  })
+
   it('preserves the four original car recipes', () => {
     expect(RECIPES).toEqual({
       blue: { red: 3, yellow: 3, blue: 2 },
@@ -69,6 +114,17 @@ describe('Motor City parity engine', () => {
       red: { red: 3, yellow: 2, blue: 2 },
       yellow: { red: 2, yellow: 3, blue: 2 },
     })
+  })
+
+  it('keeps model lanes in canonical order regardless of selection order', () => {
+    const game = createGame({ enabledModels: ['yellow', 'blue', 'red'] })
+
+    expect(game.config.enabledModels).toEqual(['blue', 'red', 'yellow'])
+    expect(game.cars.map(({ model, row }) => ({ model, row }))).toEqual([
+      { model: 'blue', row: 0 },
+      { model: 'red', row: 1 },
+      { model: 'yellow', row: 2 },
+    ])
   })
 
   it('replenishes planning when a car enters manufacturing', () => {

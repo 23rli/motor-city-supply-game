@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { STALL_AFTER_MS, buildCohortCsv, summarizeCohort } from './cohort'
+import {
+  STALL_AFTER_MS,
+  buildCohortCsv,
+  cohortReferenceTime,
+  summarizeCohort,
+} from './cohort'
 import type { TeamPlayerReport } from './types'
 
 const NOW = Date.parse('2026-08-01T12:00:00.000Z')
@@ -29,6 +34,12 @@ const player = (
 })
 
 describe('cohort summary', () => {
+  it('freezes activity comparisons at the recorded finish time', () => {
+    const endedAt = '2026-08-01T12:00:00.000Z'
+    expect(cohortReferenceTime(true, endedAt, NOW + 60_000)).toBe(NOW)
+    expect(cohortReferenceTime(false, endedAt, NOW + 60_000)).toBe(NOW + 60_000)
+  })
+
   it('reports an empty room without dividing by zero', () => {
     expect(summarizeCohort([], NOW)).toMatchObject({
       players: 0,
@@ -111,5 +122,14 @@ describe('cohort export', () => {
     expect(lines[1]).toContain('"alovelace@wustl.edu"')
     // Nobody is forced to give one, and a blank must not shift the other columns.
     expect(lines[2].split(',')[1]).toBe('""')
+  })
+
+  it('neutralizes spreadsheet formulas in player-controlled fields', () => {
+    const csv = buildCohortCsv([
+      player('=HYPERLINK("https://example.test")', { identifier: ' +SUM(1,1)' }),
+    ])
+
+    expect(csv).toContain('"\'=HYPERLINK(""https://example.test"")"')
+    expect(csv).toContain('"\' +SUM(1,1)"')
   })
 })

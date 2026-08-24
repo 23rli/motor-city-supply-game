@@ -11,7 +11,9 @@ import blueCar from '../assets/cars/blue.webp'
 import greenCar from '../assets/cars/green.webp'
 import redCar from '../assets/cars/red.webp'
 import yellowCar from '../assets/cars/yellow.webp'
-import { CAR_MODELS, type CarModel } from '../game/types'
+import { RunSetupFields } from '../components/RunSetupFields'
+import { DEFAULT_REVENUE, DEFAULT_WIP_PENALTY } from '../game/engine'
+import { CAR_MODELS, type CarModel, type ResourcePlan } from '../game/types'
 import { ApiClientError, teamApi } from './api'
 import type { TeamCredentials } from './types'
 
@@ -39,7 +41,13 @@ export function TeamLauncher({
   const [code, setCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [models, setModels] = useState<CarModel[]>([...CAR_MODELS])
-  const [resourcePlan, setResourcePlan] = useState<'classic' | 'random'>('classic')
+  const [resourcePlan, setResourcePlan] = useState<ResourcePlan>('classic')
+  const [revenue, setRevenue] = useState({ ...DEFAULT_REVENUE })
+  const [wipPenalty, setWipPenalty] = useState({ ...DEFAULT_WIP_PENALTY })
+  const [notes, setNotes] = useState('')
+  const [reuseSetup, setReuseSetup] = useState(false)
+  const [previousCode, setPreviousCode] = useState('')
+  const [previousRecoveryCode, setPreviousRecoveryCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -82,6 +90,15 @@ export function TeamLauncher({
       facilitatorName,
       enabledModels: models,
       resourcePlan,
+      revenue,
+      wipPenalty,
+      notes,
+      reuse: reuseSetup
+        ? {
+            code: previousCode.trim().toUpperCase(),
+            recoveryCode: previousRecoveryCode,
+          }
+        : undefined,
     }))
   }
 
@@ -149,20 +166,28 @@ export function TeamLauncher({
             ) : (
               <>
                 <label><span>Facilitator name</span><input value={facilitatorName} onChange={(event) => setFacilitatorName(event.target.value)} maxLength={80} placeholder="Your name" required /></label>
-                <fieldset className="launcher-models">
-                  <legend>Active models</legend>
-                  {CAR_MODELS.map((model) => (
-                    <label key={model} className={`launcher-model model-${model}`}>
-                      <input
-                        type="checkbox"
-                        checked={models.includes(model)}
-                        onChange={(event) => setModels((current) => event.target.checked ? [...current, model] : current.filter((item) => item !== model))}
-                      />
-                      <span>{model}</span>
-                    </label>
-                  ))}
-                </fieldset>
-                <label><span>Resource plan</span><select value={resourcePlan} onChange={(event) => setResourcePlan(event.target.value as 'classic' | 'random')}><option value="classic">Classic demo sequence</option><option value="random">Random 100 rounds</option></select></label>
+                <label className="reuse-toggle">
+                  <input type="checkbox" checked={reuseSetup} onChange={(event) => setReuseSetup(event.target.checked)} />
+                  <span>Reuse a previous facilitator setup</span>
+                </label>
+                {reuseSetup ? (
+                  <div className="reuse-fields">
+                    <label><span>Previous join code</span><input value={previousCode} onChange={(event) => setPreviousCode(event.target.value.toUpperCase())} maxLength={6} placeholder="ABC234" required /></label>
+                    <label><span>Previous facilitator recovery code</span><input value={previousRecoveryCode} onChange={(event) => setPreviousRecoveryCode(event.target.value)} maxLength={128} required /></label>
+                  </div>
+                ) : (
+                  <RunSetupFields
+                    models={models}
+                    resourcePlan={resourcePlan}
+                    revenue={revenue}
+                    wipPenalty={wipPenalty}
+                    onModelsChange={setModels}
+                    onResourcePlanChange={setResourcePlan}
+                    onRevenueChange={setRevenue}
+                    onWipPenaltyChange={setWipPenalty}
+                  />
+                )}
+                <label><span>Run notes <em>optional</em></span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2_000} rows={3} /></label>
               </>
             )}
 
@@ -171,7 +196,7 @@ export function TeamLauncher({
             )}
             {error && <p className="form-error" role="alert">{error}</p>}
 
-            <button className="button button-primary team-submit" type="submit" disabled={busy || (teamAction === 'create' && models.length === 0)}>
+            <button className="button button-primary team-submit" type="submit" disabled={busy || (teamAction === 'create' && !reuseSetup && models.length === 0)}>
               {busy ? 'Connecting...' : teamAction === 'join' ? 'Join session' : teamAction === 'rejoin' ? 'Rejoin session' : 'Create session'}
               {!busy && <ArrowRight size={17} aria-hidden="true" />}
             </button>

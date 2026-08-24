@@ -14,6 +14,8 @@ Browser calls use same-origin `/api` routes. Session credentials are 12-hour Htt
 
 Create, join, and rejoin return a one-time recovery code in a `Cache-Control: no-store` response. Rejoin rotates it. The application displays it once and stores only a non-sensitive resume hint in local storage. Edge, proxy, and APM configuration must not log these response bodies.
 
+Create accepts enabled models, `classic | evan | random` resource plans, per-model revenue and WIP rates, and notes. A facilitator may reuse an exact prior setup by supplying that game's join code and facilitator recovery code; notes belong to the new run and are not copied. Player session payloads omit notes and replace WIP rates and historical penalty totals with zero until the final report is available.
+
 ## Facilitator
 
 | Method | Route | Purpose |
@@ -21,8 +23,14 @@ Create, join, and rejoin return a one-time recovery code in a `Cache-Control: no
 | `POST` | `/api/games/:gameId/start` | Transition waiting to active |
 | `POST` | `/api/games/:gameId/end` | Finish and lock the game |
 | `GET` | `/api/games/:gameId/report` | Read the live/final comparison report |
+| `GET` | `/api/games/:gameId/export` | Read the full cohort history for workbook/CSV export |
+| `GET` | `/api/games/:gameId/participants/:participantId/history` | Read one player's complete round history |
+| `POST` | `/api/games/:gameId/participants/:participantId/recovery` | Rotate a player's recovery code |
+| `DELETE` | `/api/games/:gameId/participants/:participantId` | Durably remove a player from active access and reports |
 
 End requires one-based `penaltyRound` and `endRound`. The selected historical WIP round determines penalties; the cutoff round determines reported revenue and throughput.
+Ending locks both scores and roster membership. Recovery-code rotation and participant removal return `409 GAME_FINISHED` afterward, while reports, player drill-down, and exports remain readable.
+Participant activity timestamps also freeze at finish. Player-accessible final reports reveal scores but omit facilitator notes and every participant's optional student identifier; facilitator reports and exports retain those fields.
 
 ## Player commands
 
@@ -36,11 +44,13 @@ End requires one-based `penaltyRound` and `endRound`. The selected historical WI
 }
 ```
 
-Command types are `move`, `allocate`, `convert`, `advance`, and `reset`. Each successful command increments only that player's version. A stale version returns `409 STALE_STATE`; replaying the same successful command and key returns the original response without executing again.
+Command types are `move`, `reposition`, `allocate`, `convert`, `advance`, and `reset`. Each successful command increments only that player's version. A stale version returns `409 STALE_STATE`; replaying the same successful command and key returns the original response without executing again.
 
 ## Persistence
 
 Games hold shared configuration and lifecycle. Participants hold independent factory snapshots and versions. Successful round advances append immutable summaries. Reports read inside a transaction. Idempotency receipts expire after 24 hours and are removed at process startup, hourly, and during commands.
+
+The migration that first introduces durable participant removal treats any already-revoked player row as removed. Earlier releases stored voluntary revocation and facilitator removal identically, so the upgrade deliberately fails closed; later ordinary revocations remain recoverable because the backfill runs only when the new column is created.
 
 Authenticated traffic is rate-limited by hashed session credential so one player cannot consume another player's bucket. Create, join, and rejoin are separately limited by source IP.
 

@@ -1,50 +1,43 @@
 import { useState, type FormEvent } from 'react'
-import { CAR_MODELS, type CarModel } from '../game/types'
-
-export type ResourcePlan = 'classic' | 'random'
+import type { GameConfig, GameSetup } from '../game/types'
+import { RunSetupFields } from './RunSetupFields'
 
 interface NewRunPanelProps {
-  enabledModels: CarModel[]
-  onStart: (models: CarModel[], resourcePlan: ResourcePlan) => void
+  config: GameConfig
+  onStart: (setup: GameSetup) => void
   onCancel: () => void
 }
 
-export function NewRunPanel({ enabledModels, onStart, onCancel }: NewRunPanelProps) {
-  const [models, setModels] = useState<CarModel[]>(enabledModels)
-  const [resourcePlan, setResourcePlan] = useState<ResourcePlan>('classic')
+export function NewRunPanel({ config, onStart, onCancel }: NewRunPanelProps) {
+  const [models, setModels] = useState([...config.enabledModels])
+  const [resourcePlan, setResourcePlan] = useState(config.resourcePlan)
+  const [revenue, setRevenue] = useState({ ...config.revenue })
+  const [wipPenalty, setWipPenalty] = useState({ ...config.wipPenalty })
+  const [notes, setNotes] = useState(config.notes)
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    if (models.length > 0) onStart(models, resourcePlan)
+    if (models.length > 0) {
+      onStart({ enabledModels: models, resourcePlan, revenue, wipPenalty, notes })
+    }
   }
 
   return (
     <form className="new-run-form" onSubmit={handleSubmit}>
-      <fieldset className="model-switches">
-        <legend>Active models</legend>
-        {CAR_MODELS.map((model) => (
-          <label className={`model-switch model-switch-${model}`} key={model}>
-            <input
-              type="checkbox"
-              checked={models.includes(model)}
-              onChange={(event) => {
-                setModels((current) => event.target.checked
-                  ? [...current, model]
-                  : current.filter((candidate) => candidate !== model))
-              }}
-            />
-            <span aria-hidden="true" />
-            <strong>{model}</strong>
-          </label>
-        ))}
-      </fieldset>
+      <RunSetupFields
+        models={models}
+        resourcePlan={resourcePlan}
+        revenue={revenue}
+        wipPenalty={wipPenalty}
+        onModelsChange={setModels}
+        onResourcePlanChange={setResourcePlan}
+        onRevenueChange={setRevenue}
+        onWipPenaltyChange={setWipPenalty}
+      />
 
-      <label className="select-field">
-        <span>Resource plan</span>
-        <select value={resourcePlan} onChange={(event) => setResourcePlan(event.target.value as ResourcePlan)}>
-          <option value="classic">Classic demo sequence</option>
-          <option value="random">Random 100-round sequence</option>
-        </select>
+      <label className="notes-field">
+        <span>Run notes <em>optional</em></span>
+        <textarea value={notes} maxLength={2_000} rows={3} onChange={(event) => setNotes(event.target.value)} />
       </label>
 
       {models.length === 0 && <p className="form-error" role="alert">Select at least one model.</p>}

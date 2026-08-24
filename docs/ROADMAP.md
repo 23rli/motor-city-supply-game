@@ -16,7 +16,7 @@ Status: implemented in this repository.
 - deterministic typed game engine and executable parity tests
 - responsive solo factory board
 - recipes, conversion, statistics, reset, recovery, and reporting
-- configurable classic and random runs
+- configurable classic, original 25-round team, and random runs with custom economics and notes
 - optimized visual assets and accessible controls
 - zero-vulnerability dependency baseline and CI
 
@@ -37,10 +37,10 @@ Status: implemented.
 
 - short human-readable join codes and rotating recovery credentials
 - live facilitator roster, progress, revenue, and WIP
-- facilitator start, end, timer, and penalty controls
-- ranked leaderboard, cohort statistics, and per-round station detail
+- facilitator start, end, elapsed clock, and penalty controls
+- ranked leaderboard, cohort statistics, throughput, and on-demand per-player round detail
 - projector view for the room, showing place, name, turn, and revenue only
-- final comparison report, Excel workbook, and spreadsheet-compatible export
+- final comparison report, Excel workbook with Game Details, and spreadsheet-compatible export
 - resilient polling with exponential backoff and visible connection state
 
 ## Milestone 4: AWS deployment

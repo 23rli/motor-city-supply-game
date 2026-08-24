@@ -53,6 +53,34 @@ export const DEMO_RESOURCE_SCHEDULE: ResourcePool[] = [
   { red: 8, yellow: 7, blue: 1 },
 ]
 
+export const EVAN_RESOURCE_SCHEDULE: ResourcePool[] = [
+  { red: 8, yellow: 6, blue: 2 },
+  { red: 7, yellow: 4, blue: 3 },
+  { red: 10, yellow: 6, blue: 1 },
+  { red: 6, yellow: 2, blue: 2 },
+  { red: 6, yellow: 2, blue: 1 },
+  { red: 9, yellow: 2, blue: 3 },
+  { red: 7, yellow: 7, blue: 2 },
+  { red: 5, yellow: 4, blue: 4 },
+  { red: 5, yellow: 6, blue: 3 },
+  { red: 3, yellow: 3, blue: 4 },
+  { red: 4, yellow: 2, blue: 1 },
+  { red: 5, yellow: 5, blue: 3 },
+  { red: 3, yellow: 6, blue: 2 },
+  { red: 6, yellow: 1, blue: 3 },
+  { red: 1, yellow: 3, blue: 2 },
+  { red: 2, yellow: 2, blue: 2 },
+  { red: 7, yellow: 5, blue: 2 },
+  { red: 4, yellow: 3, blue: 4 },
+  { red: 5, yellow: 6, blue: 3 },
+  { red: 4, yellow: 8, blue: 3 },
+  { red: 8, yellow: 7, blue: 2 },
+  { red: 7, yellow: 6, blue: 3 },
+  { red: 6, yellow: 3, blue: 2 },
+  { red: 5, yellow: 6, blue: 4 },
+  { red: 5, yellow: 8, blue: 2 },
+]
+
 export function createRandomResourceSchedule(
   rounds = 100,
   random = Math.random,
@@ -67,6 +95,20 @@ export function createRandomResourceSchedule(
 const EMPTY_RESOURCES: ResourcePool = { red: 0, yellow: 0, blue: 0 }
 
 const clonePool = (pool: ResourcePool): ResourcePool => ({ ...pool })
+
+const samePool = (left: ResourcePool, right: ResourcePool) =>
+  RESOURCES.every((resource) => left[resource] === right[resource])
+
+const inferResourcePlan = (schedule: ResourcePool[]) => {
+  if (schedule.length >= 100) return 'random' as const
+  if (
+    schedule.length >= EVAN_RESOURCE_SCHEDULE.length
+    && EVAN_RESOURCE_SCHEDULE.every((pool, index) => samePool(pool, schedule[index]))
+  ) {
+    return 'evan' as const
+  }
+  return 'classic' as const
+}
 
 const cloneCar = (car: Car): Car => ({
   ...car,
@@ -99,13 +141,22 @@ const toSnapshot = (state: GameSnapshot): GameSnapshot => cloneSnapshot(state)
 export function createGame(
   overrides: Partial<GameConfig> = {},
 ): GameState {
+  const requestedModels = overrides.enabledModels ?? CAR_MODELS
+  const resourcePlan = overrides.resourcePlan
+    ?? inferResourcePlan(overrides.resourceSchedule ?? DEMO_RESOURCE_SCHEDULE)
+  const resourceSchedule = overrides.resourceSchedule
+    ?? (resourcePlan === 'random'
+      ? createRandomResourceSchedule()
+      : resourcePlan === 'evan'
+        ? EVAN_RESOURCE_SCHEDULE
+        : DEMO_RESOURCE_SCHEDULE)
   const config: GameConfig = {
-    enabledModels: [...(overrides.enabledModels ?? CAR_MODELS)],
-    resourceSchedule: (
-      overrides.resourceSchedule ?? DEMO_RESOURCE_SCHEDULE
-    ).map(clonePool),
+    enabledModels: CAR_MODELS.filter((model) => requestedModels.includes(model)),
+    resourcePlan,
+    resourceSchedule: resourceSchedule.map(clonePool),
     revenue: { ...DEFAULT_REVENUE, ...overrides.revenue },
     wipPenalty: { ...DEFAULT_WIP_PENALTY, ...overrides.wipPenalty },
+    notes: overrides.notes ?? '',
   }
 
   const cars = config.enabledModels.map((model, row) =>

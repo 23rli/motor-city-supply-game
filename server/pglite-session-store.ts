@@ -2,7 +2,6 @@ import { randomInt, randomUUID } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
 import {
   createGame,
-  createRandomResourceSchedule,
   getRoundSummary,
 } from '../src/game/engine'
 import type { GameConfig, GameState } from '../src/game/types'
@@ -20,6 +19,11 @@ import {
 } from './db/client'
 import { INITIAL_SCHEMA_SQL } from './db/schema'
 import { applyPlayerCommand } from './player-command'
+import {
+  concealConfigNotes,
+  concealPlayerConfig,
+  concealPlayerState,
+} from './player-view'
 import { calculatePlayerReport } from './report'
 import {
   hashSecret,
@@ -60,6 +64,7 @@ interface ParticipantRow {
   recovery_hash: string
   token_expires_at: Date | string
   revoked_at: Date | string | null
+  removed_at: Date | string | null
   state: GameState | string | null
   state_version: number
   joined_at: Date | string
@@ -118,14 +123,35 @@ export class SqlSessionStore implements SessionStore {
   }
 
   async createSession(input: CreateSessionInput) {
-    const seedState = createGame({
-      enabledModels: input.enabledModels,
-      resourceSchedule: input.resourcePlan === 'random'
-        ? createRandomResourceSchedule()
-        : undefined,
-      revenue: input.revenue,
-      wipPenalty: input.wipPenalty,
-    })
+    let reusedConfig: GameConfig | null = null
+    if (input.reuse) {
+      const reusable = await this.client.query<{ config: GameConfig | string }>(
+        `SELECT g.config
+         FROM games g
+         JOIN participants p ON p.id = g.facilitator_id
+         WHERE g.code = $1
+           AND p.recovery_hash = $2
+           AND p.removed_at IS NULL`,
+        [input.reuse.code, hashSecret(input.reuse.recoveryCode)],
+      )
+      if (!reusable.rows[0]) {
+        throw new ApiError(
+          401,
+          'INVALID_REUSE_CREDENTIALS',
+          'The previous facilitator details are invalid.',
+        )
+      }
+      reusedConfig = createGame(asJson<GameConfig>(reusable.rows[0].config)).config
+    }
+    const seedState = createGame(reusedConfig
+      ? { ...reusedConfig, notes: input.notes }
+      : {
+          enabledModels: input.enabledModels,
+          resourcePlan: input.resourcePlan,
+          revenue: input.revenue,
+          wipPenalty: input.wipPenalty,
+          notes: input.notes,
+        })
     const gameId = randomUUID()
     const facilitatorId = randomUUID()
     const secrets = issueSessionSecrets()
@@ -153,6 +179,7 @@ export class SqlSessionStore implements SessionStore {
       recovery_hash: hashSecret(secrets.recoveryCode),
       token_expires_at: secrets.tokenExpiresAt,
       revoked_at: null,
+      removed_at: null,
       state: null,
       state_version: 0,
       joined_at: timestamp,
@@ -220,6 +247,7 @@ export class SqlSessionStore implements SessionStore {
         recovery_hash: hashSecret(secrets.recoveryCode),
         token_expires_at: secrets.tokenExpiresAt,
         revoked_at: null,
+        removed_at: null,
         state: createGame(asJson<GameConfig>(game.config)),
         state_version: 0,
         joined_at: timestamp,
@@ -238,9 +266,9 @@ export class SqlSessionStore implements SessionStore {
       return {
         token: secrets.token,
         recoveryCode: secrets.recoveryCode,
-        game: this.toSessionSummary(game),
+        game: this.toSessionSummary(game, true),
         participant: this.toParticipantSummary(participant),
-        state: clone(asJson<GameState>(participant.state!)),
+        state: concealPlayerState(asJson<GameState>(participant.state!)),
         stateVersion: participant.state_version,
       }
     })
@@ -248,37 +276,57 @@ export class SqlSessionStore implements SessionStore {
 
   async rejoinSession(input: RejoinSessionInput) {
     return this.client.transaction(async (tx) => {
-      const result = await tx.query<AuthRow>(
-        `SELECT
-           p.*,
-           g.code AS game_code,
-           g.status AS game_status,
-           g.config AS game_config,
-           g.facilitator_id AS game_facilitator_id,
-           g.created_at AS game_created_at,
-           g.started_at AS game_started_at,
-           g.ended_at AS game_ended_at,
-           g.penalty_round AS game_penalty_round,
-           g.end_round AS game_end_round
+      const locator = await tx.query<{ game_id: string }>(
+        `SELECT p.game_id
          FROM participants p
          JOIN games g ON g.id = p.game_id
          WHERE g.code = $1
            AND g.status IN ('waiting', 'active', 'finished')
            AND p.normalized_name = $2
            AND p.recovery_hash = $3
-         FOR UPDATE OF p FOR SHARE OF g`,
+           AND p.removed_at IS NULL`,
         [
           input.code,
           normalizeName(input.playerName),
           hashSecret(input.recoveryCode),
         ],
       )
-      const row = result.rows[0]
+      const gameId = locator.rows[0]?.game_id
+      if (!gameId) {
+        throw new ApiError(401, 'INVALID_RECOVERY', 'The recovery details are invalid.')
+      }
+
+      const games = await tx.query<GameRow>(
+        `SELECT * FROM games
+         WHERE id = $1 AND status IN ('waiting', 'active', 'finished')
+         FOR SHARE`,
+        [gameId],
+      )
+      const game = games.rows[0]
+      if (!game) {
+        throw new ApiError(401, 'INVALID_RECOVERY', 'The recovery details are invalid.')
+      }
+      const participants = await tx.query<ParticipantRow>(
+        `SELECT * FROM participants
+         WHERE game_id = $1
+           AND normalized_name = $2
+           AND recovery_hash = $3
+           AND removed_at IS NULL
+         FOR UPDATE`,
+        [
+          game.id,
+          normalizeName(input.playerName),
+          hashSecret(input.recoveryCode),
+        ],
+      )
+      const row = participants.rows[0]
       if (!row) {
         throw new ApiError(401, 'INVALID_RECOVERY', 'The recovery details are invalid.')
       }
       const secrets = issueSessionSecrets()
-      const timestamp = now()
+      const timestamp = game.status === 'finished'
+        ? asIso(row.last_seen_at)!
+        : now()
       // Remember the retired token so the old screen can say why it was signed out.
       this.superseded.note(row.token_hash, 'rejoined')
       await tx.query(
@@ -299,13 +347,16 @@ export class SqlSessionStore implements SessionStore {
       row.token_expires_at = secrets.tokenExpiresAt
       row.revoked_at = null
       row.last_seen_at = timestamp
-      const game = this.gameFromAuthRow(row)
       return {
         token: secrets.token,
         recoveryCode: secrets.recoveryCode,
-        game: this.toSessionSummary(game),
+        game: this.toSessionSummary(game, row.role === 'player'),
         participant: this.toParticipantSummary(row),
-        state: row.state ? clone(asJson<GameState>(row.state)) : undefined,
+        state: row.state
+          ? row.role === 'player'
+            ? concealPlayerState(asJson<GameState>(row.state))
+            : clone(asJson<GameState>(row.state))
+          : undefined,
         stateVersion: row.state_version,
       }
     })
@@ -313,29 +364,37 @@ export class SqlSessionStore implements SessionStore {
 
   async getSession(token: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
-      const timestamp = now()
-      const heartbeat = await tx.query(
-        'UPDATE participants SET last_seen_at = $1 WHERE id = $2',
-        [timestamp, participant.id],
-      )
-      if (heartbeat.affectedRows !== 1) {
-        throw new ApiError(
-          409,
-          'SESSION_CHANGED',
-          'The participant session changed while it was being restored.',
+      const { participant, game } = await this.authenticate(tx, token, 'command')
+      if (game.status !== 'finished') {
+        const timestamp = now()
+        const heartbeat = await tx.query(
+          'UPDATE participants SET last_seen_at = $1 WHERE id = $2',
+          [timestamp, participant.id],
         )
+        if (heartbeat.affectedRows !== 1) {
+          throw new ApiError(
+            409,
+            'SESSION_CHANGED',
+            'The participant session changed while it was being restored.',
+          )
+        }
+        participant.last_seen_at = timestamp
       }
-      participant.last_seen_at = timestamp
       const roster = await tx.query<ParticipantRow>(
-        'SELECT * FROM participants WHERE game_id = $1 ORDER BY joined_at, id',
+        `SELECT * FROM participants
+         WHERE game_id = $1 AND removed_at IS NULL
+         ORDER BY joined_at, id`,
         [game.id],
       )
       return {
-        game: this.toSessionSummary(game),
+        game: this.toSessionSummary(game, participant.role === 'player'),
         participant: this.toParticipantSummary(participant),
         roster: roster.rows.map((member) => this.toParticipantSummary(member)),
-        state: participant.state ? clone(asJson<GameState>(participant.state)) : null,
+        state: participant.state
+          ? participant.role === 'player'
+            ? concealPlayerState(asJson<GameState>(participant.state))
+            : clone(asJson<GameState>(participant.state))
+          : null,
         stateVersion: participant.state_version,
       }
     })
@@ -435,7 +494,12 @@ export class SqlSessionStore implements SessionStore {
             'That idempotency key was already used for a different command.',
           )
         }
-        return { ...clone(asJson<PlayerCommandResult>(receipt.response)), repeated: true }
+        const response = clone(asJson<PlayerCommandResult>(receipt.response))
+        return {
+          ...response,
+          state: concealPlayerState(response.state),
+          repeated: true,
+        }
       }
 
       if (input.expectedVersion !== participant.state_version) {
@@ -456,7 +520,7 @@ export class SqlSessionStore implements SessionStore {
       const stateVersion = participant.state_version + 1
       const timestamp = now()
       const response: PlayerCommandResult = {
-        state: clone(application.state),
+        state: concealPlayerState(application.state),
         stateVersion,
         repeated: false,
       }
@@ -509,7 +573,7 @@ export class SqlSessionStore implements SessionStore {
       const { participant, game } = await this.authenticate(tx, token)
       this.requireGame(participant, game, gameId)
       this.requireReportAccess(participant, game)
-      return this.buildReport(tx, game)
+      return this.buildReport(tx, game, participant.role === 'player')
     })
   }
 
@@ -544,6 +608,43 @@ export class SqlSessionStore implements SessionStore {
     })
   }
 
+  async getPlayerHistory(token: string, gameId: string, participantId: string) {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token)
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
+      const result = await tx.query<ParticipantRow>(
+        `SELECT * FROM participants
+         WHERE id = $1 AND game_id = $2 AND role = 'player'
+           AND state IS NOT NULL AND removed_at IS NULL
+         FOR SHARE`,
+        [participantId, gameId],
+      )
+      const target = result.rows[0]
+      if (!target || !target.state) {
+        throw new ApiError(
+          404,
+          'PARTICIPANT_NOT_FOUND',
+          'That player is not in this session.',
+        )
+      }
+      const state = asJson<GameState>(target.state)
+      const metrics = calculatePlayerReport(state, {
+        penaltyRound: game.penalty_round,
+        endRound: game.end_round,
+      })
+      return {
+        id: target.id,
+        name: target.name,
+        identifier: target.identifier ?? null,
+        ...metrics,
+        stateVersion: target.state_version,
+        lastSeenAt: asIso(target.last_seen_at),
+        history: [...state.history, getRoundSummary(state)],
+      }
+    })
+  }
+
   async cleanupExpiredData(client: SqlExecutor = this.client) {
     await client.query(
       `DELETE FROM idempotency_receipts
@@ -557,41 +658,70 @@ export class SqlSessionStore implements SessionStore {
     token: string,
     lock: 'none' | 'game' | 'command' = 'none',
   ) {
-    const lockClause = lock === 'game'
-      ? 'FOR UPDATE OF g'
-      : lock === 'command'
-        ? 'FOR UPDATE OF p FOR SHARE OF g'
-        : ''
-    const result = await client.query<AuthRow>(
-      `SELECT
-         p.*,
-         g.code AS game_code,
-         g.status AS game_status,
-         g.config AS game_config,
-         g.facilitator_id AS game_facilitator_id,
-         g.created_at AS game_created_at,
-         g.started_at AS game_started_at,
-         g.ended_at AS game_ended_at,
-         g.penalty_round AS game_penalty_round,
-         g.end_round AS game_end_round
-       FROM participants p
-       JOIN games g ON g.id = p.game_id
-       WHERE p.token_hash = $1
-        AND p.revoked_at IS NULL
-        AND p.token_expires_at > NOW()
-       ${lockClause}`,
-      [hashSecret(token)],
-    )
-    const row = result.rows[0]
-    if (!row) {
-      const reason = this.superseded.reasonFor(hashSecret(token))
+    const tokenHash = hashSecret(token)
+    const invalidSession = (): never => {
+      const reason = this.superseded.reasonFor(tokenHash)
       if (reason) {
         throw new ApiError(401, `SESSION_${reason.toUpperCase()}`, SUPERSEDED_MESSAGES[reason])
       }
       throw new ApiError(401, 'INVALID_SESSION', 'The session token is missing or invalid.')
     }
-    const game = this.gameFromAuthRow(row)
-    return { participant: row as ParticipantRow, game }
+
+    if (lock === 'none') {
+      const result = await client.query<AuthRow>(
+        `SELECT
+           p.*,
+           g.code AS game_code,
+           g.status AS game_status,
+           g.config AS game_config,
+           g.facilitator_id AS game_facilitator_id,
+           g.created_at AS game_created_at,
+           g.started_at AS game_started_at,
+           g.ended_at AS game_ended_at,
+           g.penalty_round AS game_penalty_round,
+           g.end_round AS game_end_round
+         FROM participants p
+         JOIN games g ON g.id = p.game_id
+         WHERE p.token_hash = $1
+          AND p.revoked_at IS NULL
+          AND p.removed_at IS NULL
+          AND p.token_expires_at > NOW()`,
+        [tokenHash],
+      )
+      const row = result.rows[0]
+      if (!row) return invalidSession()
+      return { participant: row as ParticipantRow, game: this.gameFromAuthRow(row) }
+    }
+
+    const locator = await client.query<{ game_id: string }>(
+      'SELECT game_id FROM participants WHERE token_hash = $1',
+      [tokenHash],
+    )
+    const gameId = locator.rows[0]?.game_id
+    if (!gameId) return invalidSession()
+
+    const gameLock = lock === 'game' ? 'FOR UPDATE' : 'FOR SHARE'
+    const games = await client.query<GameRow>(
+      `SELECT * FROM games WHERE id = $1 ${gameLock}`,
+      [gameId],
+    )
+    const game = games.rows[0]
+    if (!game) {
+      throw new ApiError(404, 'GAME_NOT_FOUND', 'The game no longer exists.')
+    }
+    const participants = await client.query<ParticipantRow>(
+      `SELECT * FROM participants
+       WHERE token_hash = $1
+         AND game_id = $2
+         AND revoked_at IS NULL
+         AND removed_at IS NULL
+         AND token_expires_at > NOW()
+       FOR UPDATE`,
+      [tokenHash, game.id],
+    )
+    const participant = participants.rows[0]
+    if (!participant) return invalidSession()
+    return { participant, game }
   }
 
   private gameFromAuthRow(row: AuthRow): GameRow {
@@ -613,8 +743,8 @@ export class SqlSessionStore implements SessionStore {
     await client.query(
       `INSERT INTO participants
         (id, game_id, name, normalized_name, identifier, role, token_hash, recovery_hash,
-         token_expires_at, revoked_at, state, state_version, joined_at, last_seen_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)`,
+         token_expires_at, revoked_at, removed_at, state, state_version, joined_at, last_seen_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15)`,
       [
         participant.id,
         participant.game_id,
@@ -626,6 +756,7 @@ export class SqlSessionStore implements SessionStore {
         participant.recovery_hash,
         participant.token_expires_at,
         participant.revoked_at,
+        participant.removed_at,
         participant.state ? JSON.stringify(participant.state) : null,
         participant.state_version,
         participant.joined_at,
@@ -637,9 +768,10 @@ export class SqlSessionStore implements SessionStore {
   /** Rotates one participant's recovery code so a facilitator can read it to them aloud. */
   async issueRecoveryCode(token: string, gameId: string, participantId: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
+      const { participant, game } = await this.authenticate(tx, token, 'game')
       this.requireGame(participant, game, gameId)
       this.requireFacilitator(participant)
+      this.requireMutableRoster(game)
 
       const result = await tx.query<ParticipantRow>(
         `SELECT * FROM participants WHERE id = $1 AND game_id = $2 FOR UPDATE`,
@@ -656,7 +788,7 @@ export class SqlSessionStore implements SessionStore {
 
       const { recoveryCode } = issueSessionSecrets()
       await tx.query(
-        `UPDATE participants SET recovery_hash = $1 WHERE id = $2`,
+        `UPDATE participants SET recovery_hash = $1, removed_at = NULL WHERE id = $2`,
         [hashSecret(recoveryCode), target.id],
       )
       return { participantId: target.id, name: target.name, recoveryCode }
@@ -666,9 +798,10 @@ export class SqlSessionStore implements SessionStore {
   /** Removes a player mid-game; their screen is told why rather than silently signed out. */
   async removeParticipant(token: string, gameId: string, participantId: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
+      const { participant, game } = await this.authenticate(tx, token, 'game')
       this.requireGame(participant, game, gameId)
       this.requireFacilitator(participant)
+      this.requireMutableRoster(game)
 
       const result = await tx.query<ParticipantRow>(
         `SELECT * FROM participants WHERE id = $1 AND game_id = $2 FOR UPDATE`,
@@ -690,19 +823,24 @@ export class SqlSessionStore implements SessionStore {
         )
       }
 
+      const timestamp = now()
       await tx.query(
-        `UPDATE participants SET revoked_at = $1 WHERE id = $2`,
-        [now(), target.id],
+        `UPDATE participants SET revoked_at = $1, removed_at = $1 WHERE id = $2`,
+        [timestamp, target.id],
       )
       this.superseded.note(target.token_hash, 'removed')
       return { participantId: target.id, name: target.name }
     })
   }
 
-  private async buildReport(client: SqlExecutor, game: GameRow) {
+  private async buildReport(
+    client: SqlExecutor,
+    game: GameRow,
+    playerView = false,
+  ) {
     const result = await client.query<ParticipantRow>(
       `SELECT p.* FROM participants p
-       WHERE p.game_id = $1 AND p.role = 'player'
+        WHERE p.game_id = $1 AND p.role = 'player' AND p.removed_at IS NULL
        ORDER BY p.joined_at, p.id
        FOR SHARE OF p`,
       [game.id],
@@ -718,14 +856,16 @@ export class SqlSessionStore implements SessionStore {
         return {
           id: participant.id,
           name: participant.name,
-          identifier: participant.identifier ?? null,
+          identifier: playerView ? null : participant.identifier ?? null,
           ...metrics,
           stateVersion: participant.state_version,
           lastSeenAt: asIso(participant.last_seen_at),
         }
       })
       .sort((left, right) => right.projectedScore - left.projectedScore)
-    return { game: this.toSessionSummary(game), players }
+    const summary = this.toSessionSummary(game)
+    if (playerView) summary.config = concealConfigNotes(summary.config)
+    return { game: summary, players }
   }
 
   private requireGame(participant: ParticipantRow, game: GameRow, gameId: string) {
@@ -737,6 +877,16 @@ export class SqlSessionStore implements SessionStore {
   private requireFacilitator(participant: ParticipantRow) {
     if (participant.role !== 'facilitator') {
       throw new ApiError(403, 'FACILITATOR_REQUIRED', 'Only the facilitator can do that.')
+    }
+  }
+
+  private requireMutableRoster(game: GameRow) {
+    if (game.status === 'finished') {
+      throw new ApiError(
+        409,
+        'GAME_FINISHED',
+        'A finished game has a locked roster and report.',
+      )
     }
   }
 
@@ -760,7 +910,7 @@ export class SqlSessionStore implements SessionStore {
   ) {
     const result = await client.query<{ state: GameState | string | null }>(
       `SELECT state FROM participants
-       WHERE game_id = $1 AND role = 'player'
+        WHERE game_id = $1 AND role = 'player' AND removed_at IS NULL
        FOR SHARE`,
       [gameId],
     )
@@ -786,12 +936,14 @@ export class SqlSessionStore implements SessionStore {
     ).join('')
   }
 
-  private toSessionSummary(game: GameRow) {
+  private toSessionSummary(game: GameRow, concealPenalty = false) {
     return {
       id: game.id,
       code: game.code,
       status: game.status,
-      config: clone(asJson<GameConfig>(game.config)),
+      config: concealPenalty
+        ? concealPlayerConfig(createGame(asJson<GameConfig>(game.config)).config)
+        : createGame(asJson<GameConfig>(game.config)).config,
       createdAt: asIso(game.created_at),
       startedAt: asIso(game.started_at),
       endedAt: asIso(game.ended_at),

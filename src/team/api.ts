@@ -1,9 +1,10 @@
-import type { CarModel } from '../game/types'
+import type { GameSetup } from '../game/types'
 import type {
   PlayerCommand,
   PlayerCommandResponse,
   TeamCredentials,
   TeamExport,
+  TeamExportPlayer,
   TeamReport,
   TeamSessionSnapshot,
 } from './types'
@@ -70,10 +71,9 @@ async function request<T>(
 }
 
 export const teamApi = {
-  createGame(input: {
+  createGame(input: GameSetup & {
     facilitatorName: string
-    enabledModels: CarModel[]
-    resourcePlan: 'classic' | 'random'
+    reuse?: { code: string; recoveryCode: string }
   }) {
     return request<TeamCredentials>('/api/games', {
       method: 'POST',
@@ -130,6 +130,12 @@ export const teamApi = {
 
   getExport(gameId: string) {
     return request<TeamExport>(`/api/games/${gameId}/export`)
+  },
+
+  getPlayerHistory(gameId: string, participantId: string) {
+    return request<TeamExportPlayer>(
+      `/api/games/${gameId}/participants/${participantId}/history`,
+    )
   },
 
   readmitParticipant(gameId: string, participantId: string) {

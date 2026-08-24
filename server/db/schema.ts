@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS participants (
   recovery_hash char(64) NOT NULL,
   token_expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
+  removed_at timestamptz,
   state jsonb,
   state_version integer NOT NULL DEFAULT 0 CHECK (state_version >= 0),
   identifier varchar(120),
@@ -36,6 +37,22 @@ CREATE TABLE IF NOT EXISTS participants (
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS recovery_hash char(64);
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS token_expires_at timestamptz;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS revoked_at timestamptz;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = current_schema()
+      AND table_name = 'participants'
+      AND column_name = 'removed_at'
+  ) THEN
+    ALTER TABLE participants ADD COLUMN removed_at timestamptz;
+    UPDATE participants
+    SET removed_at = revoked_at
+    WHERE role = 'player' AND revoked_at IS NOT NULL;
+  END IF;
+END
+$$;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS identifier varchar(120);
 
 CREATE INDEX IF NOT EXISTS participants_game_id_idx

@@ -4,6 +4,14 @@ import type { TeamPlayerReport } from './types'
 /** A player is flagged for the facilitator once their board has been quiet this long. */
 export const STALL_AFTER_MS = 3 * 60 * 1000
 
+export function cohortReferenceTime(
+  finished: boolean,
+  endedAt: string | null,
+  currentTime: number,
+) {
+  return finished && endedAt ? Date.parse(endedAt) : currentTime
+}
+
 const total = (values: ModelValues) =>
   CAR_MODELS.reduce((sum, model) => sum + values[model], 0)
 
@@ -79,8 +87,13 @@ export function summarizeCohort(
   }
 }
 
-const csvCell = (value: string | number) =>
-  `"${String(value).replaceAll('"', '""')}"`
+const csvCell = (value: string | number) => {
+  const raw = String(value)
+  const safe = typeof value === 'string' && /^\s*[=+\-@]/.test(raw)
+    ? `'${raw}`
+    : raw
+  return `"${safe.replaceAll('"', '""')}"`
+}
 
 export function buildCohortCsv(players: TeamPlayerReport[]): string {
   const rows = [

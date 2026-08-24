@@ -53,8 +53,23 @@ const data = (players: TeamExportPlayer[]): TeamExport => ({
     id: 'game',
     code: 'ABC234',
     status: 'finished',
-    config: { enabledModels: ['green'] },
-  } as unknown as TeamExport['game'],
+    config: {
+      enabledModels: ['green'],
+      resourcePlan: 'evan',
+      resourceSchedule: [
+        { red: 8, yellow: 6, blue: 2 },
+        { red: 7, yellow: 4, blue: 3 },
+      ],
+      revenue: { blue: 3, green: 2, red: 2.5, yellow: 2.5 },
+      wipPenalty: { blue: 1.5, green: 1, red: 1.25, yellow: 1.25 },
+      notes: 'Evening cohort',
+    },
+    createdAt: '2026-08-02T08:00:00.000Z',
+    startedAt: '2026-08-02T08:05:00.000Z',
+    endedAt: '2026-08-02T10:00:00.000Z',
+    penaltyRound: 8,
+    endRound: 10,
+  },
   players,
 })
 
@@ -62,19 +77,39 @@ const decoder = new TextDecoder()
 const when = new Date('2026-08-02T10:00:00Z')
 
 describe('session workbook', () => {
-  it('carries an overview, the cohort stats and one sheet per player', () => {
+  it('carries game details, an overview, cohort stats and one sheet per player', () => {
     const bytes = buildSessionWorkbook(
       data([player('Ada', [round(0), round(1)]), player('Bo', [round(0)])]),
       when,
     )
     const body = decoder.decode(bytes)
 
+    expect(body).toContain('Game Details')
     expect(body).toContain('Player Overview')
     expect(body).toContain('Game Stats')
     expect(body).toContain('<sheet name="Ada"')
     expect(body).toContain('<sheet name="Bo"')
-    // Four fixed parts plus four sheets.
-    expect(body).toContain('xl/worksheets/sheet4.xml')
+    expect(body).toContain('xl/worksheets/sheet5.xml')
+  })
+
+  it('records the setup, economics, notes, cutoffs, and exact resource schedule', () => {
+    const body = decoder.decode(
+      buildSessionWorkbook(data([player('Ada', [round(0)])]), when),
+    )
+
+    for (const value of [
+      'Resource plan',
+      'evan',
+      'Evening cohort',
+      'Scored through round',
+      'WIP measured at round',
+      'WIP rate',
+      'Resource round',
+    ]) {
+      expect(body).toContain(value)
+    }
+    expect(body).toContain('<v>8</v>')
+    expect(body).toContain('<v>6</v>')
   })
 
   it('writes the per-station breakdown the original reported', () => {

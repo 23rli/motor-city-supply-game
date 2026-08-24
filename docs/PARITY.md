@@ -21,12 +21,12 @@ Manufacturing consumes red requirements, Assembly consumes yellow requirements, 
 
 - A car entering a material station cannot leave during that same round.
 - At round advance, a car becomes ready when its current material requirement is full.
-- The classic timer is 10 minutes through round 8 and 3 minutes afterward.
+- Rounds advance only when the player confirms; there is no automatic gameplay countdown or timeout transition.
 - Reset restores the exact beginning-of-round board and resource checkpoint.
 
 ## Allocation
 
-- Allocation visits red, yellow, then blue material stations.
+- Each material allocates independently to its matching station.
 - Within each material, cars receive available resources from the top board lane downward.
 - A car receives no more than its remaining recipe requirement.
 
@@ -42,14 +42,23 @@ Any combination of exactly four available resources can be exchanged for one red
 
 ## Resources
 
-Classic mode uses the original deterministic demonstration sequence. Random mode preserves the original per-round ranges: red 1-10, yellow 1-8, and blue 1-4.
+Classic mode uses the original 10-round demonstration sequence. The original 25-round team sequence is also available. Random mode preserves the original per-round ranges: red 1-10, yellow 1-8, and blue 1-4.
 
 ## Scoring and reporting
 
 - Revenue is cumulative completed cars multiplied by model revenue.
 - WIP includes cars in Manufacturing, Assembly, Quality, and Paint.
 - Projected score is revenue minus configured WIP penalty exposure.
-- Round reports preserve completed counts, WIP, revenue, and unused resources.
+- Monetary WIP rates, exposure, and projected score stay hidden from players until the facilitator ends the run.
+- Round reports preserve per-model station and completed counts, WIP, revenue, issued, converted, and unused resources.
+
+## Approved differences from the original
+
+- The original automatic 10/3-minute round timer is intentionally omitted. Team facilitators receive an elapsed session clock that never advances player rounds.
+- Players may reposition a car within its current station to change top-lane allocation priority.
+- Enabled models always begin in blue, green, red, yellow order regardless of checkbox interaction.
+- Reset, round advance, and solo finish require confirmation.
+- WIP and final penalty calculations preserve the intended formulas rather than the original Dry Yellow omission, wrong-model lookup, and reversed-round indexing defects.
 
 ## Intentional experience changes
 
@@ -58,5 +67,6 @@ These do not alter game rules:
 - click, touch, and keyboard placement replaces drag-only interaction
 - local recovery replaces the "do not refresh" constraint for solo play
 - recipe, converter, statistics, and end-run tools remain in context
+- fixed dialogs replace draggable desktop-only reference windows
 - mobile uses full-sized horizontally paged stations
 - invalid moves explain the unmet rule

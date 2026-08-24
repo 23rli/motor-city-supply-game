@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react'
+import { Download, House } from 'lucide-react'
 import {
   getCompleted,
   getProjectedPenalty,
@@ -10,21 +10,29 @@ import { CAR_MODELS, type GameState } from '../game/types'
 
 interface EndRunPanelProps {
   game: GameState
-  onContinue: () => void
+  onContinue?: () => void
   onNewRun: () => void
+  onExit?: () => void
   newRunLabel?: string
+  showPenalty?: boolean
+  allowDownload?: boolean
 }
 
 export function EndRunPanel({
   game,
   onContinue,
   onNewRun,
+  onExit,
   newRunLabel = 'New run',
+  showPenalty = false,
+  allowDownload = showPenalty,
 }: EndRunPanelProps) {
   const revenue = getRevenue(game)
   const penalty = getProjectedPenalty(game)
   const completed = getCompleted(game)
   const wip = getWip(game)
+  const completedTotal = Object.values(completed).reduce((total, value) => total + value, 0)
+  const wipTotal = Object.values(wip).reduce((total, value) => total + value, 0)
 
   const downloadReport = () => {
     const csv = buildRunCsv(game)
@@ -41,9 +49,13 @@ export function EndRunPanel({
   return (
     <div className="end-run-panel">
       <div className="score-readout">
-        <span>Projected score</span>
-        <strong>${(revenue - penalty).toFixed(2)}</strong>
-        <small>${revenue.toFixed(2)} revenue - ${penalty.toFixed(2)} WIP exposure</small>
+        <span>{showPenalty ? 'Final score' : 'Run progress'}</span>
+        <strong>${(showPenalty ? revenue - penalty : revenue).toFixed(2)}</strong>
+        <small>
+          {showPenalty
+            ? `$${revenue.toFixed(2)} revenue - $${penalty.toFixed(2)} WIP penalty`
+            : `${completedTotal} shipped / ${wipTotal} work in process`}
+        </small>
       </div>
 
       <div className="model-results">
@@ -57,11 +69,18 @@ export function EndRunPanel({
       </div>
 
       <div className="modal-actions modal-actions-split">
-        <button className="button button-secondary" type="button" onClick={downloadReport}>
-          <Download size={16} aria-hidden="true" /> Download CSV
-        </button>
+        {allowDownload ? (
+          <button className="button button-secondary" type="button" onClick={downloadReport}>
+            <Download size={16} aria-hidden="true" /> Download CSV
+          </button>
+        ) : <span />}
         <div>
-          <button className="button button-secondary" type="button" onClick={onContinue}>Continue</button>
+          {onExit && (
+            <button className="button button-secondary" type="button" onClick={onExit}>
+              <House size={16} aria-hidden="true" /> Home
+            </button>
+          )}
+          {onContinue && <button className="button button-secondary" type="button" onClick={onContinue}>Continue</button>}
           <button className="button button-primary" type="button" onClick={onNewRun}>{newRunLabel}</button>
         </div>
       </div>

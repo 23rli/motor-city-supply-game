@@ -37,12 +37,36 @@ describe('sheet names', () => {
   it('falls back rather than producing a blank name', () => {
     expect(sheetName('', new Set())).toBe('Sheet')
     expect(sheetName('///', new Set())).toBe('Sheet')
+    expect(sheetName('\u0000', new Set())).toBe('Sheet')
+  })
+
+  it('deduplicates after removing XML control characters', () => {
+    const taken = new Set<string>()
+    expect(sheetName('Ada\u0000', taken)).toBe('Ada')
+    expect(sheetName('Ada', taken)).toBe('Ada (2)')
+  })
+
+  it('deduplicates after XML normalizes attribute whitespace', () => {
+    const taken = new Set<string>()
+    expect(sheetName('A\nB', taken)).toBe('A B')
+    expect(sheetName('A B', taken)).toBe('A B (2)')
+  })
+
+  it('removes XML-forbidden noncharacters from sheet names', () => {
+    expect(sheetName('\uFFFE\uFFFF', new Set())).toBe('Sheet')
   })
 
   it('keeps a deduplicated long name within the limit', () => {
     const taken = new Set<string>()
     sheetName('y'.repeat(31), taken)
     expect(sheetName('y'.repeat(31), taken).length).toBeLessThanOrEqual(31)
+  })
+
+  it('truncates non-BMP names by code point without splitting a character', () => {
+    const name = sheetName('\u{1F697}'.repeat(32), new Set())
+
+    expect([...name]).toHaveLength(31)
+    expect(name).toBe('\u{1F697}'.repeat(31))
   })
 })
 
@@ -100,6 +124,24 @@ describe('workbook file', () => {
     ]))
 
     expect(body).toContain('badchar')
+  })
+
+  it('drops XML-forbidden noncharacters from cells', () => {
+    const body = text(buildWorkbook([
+      { name: 'S', rows: [[`bad\uFFFE\uFFFFchar`]] },
+    ]))
+
+    expect(body).toContain('badchar')
+    expect(body).not.toContain('\uFFFE')
+    expect(body).not.toContain('\uFFFF')
+  })
+
+  it('preserves valid non-BMP characters in cells', () => {
+    const body = text(buildWorkbook([
+      { name: 'S', rows: [['Car \u{1F697}']] },
+    ]))
+
+    expect(body).toContain('Car \u{1F697}')
   })
 
   it('skips empty cells instead of writing hollow ones', () => {

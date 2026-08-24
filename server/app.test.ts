@@ -26,6 +26,29 @@ const makeApp = (options: { staticRoot?: string } = {}) => {
   return app
 }
 
+class PausedCleanupStore extends InMemorySessionStore {
+  private pause: { notify: () => void; wait: Promise<void> } | null = null
+
+  pauseNextCleanup() {
+    let notify!: () => void
+    let release!: () => void
+    const started = new Promise<void>((resolve) => { notify = resolve })
+    const wait = new Promise<void>((resolve) => { release = resolve })
+    this.pause = { notify, wait }
+    return { started, release }
+  }
+
+  override async cleanupExpiredData() {
+    const pause = this.pause
+    this.pause = null
+    if (pause) {
+      pause.notify()
+      await pause.wait
+    }
+    await super.cleanupExpiredData()
+  }
+}
+
 const auth = (cookie: string) => ({ cookie })
 
 const withCookie = (response: Awaited<ReturnType<FastifyInstance['inject']>>) => {
@@ -58,11 +81,12 @@ const joinSession = async (
   app: FastifyInstance,
   code: string,
   playerName: string,
+  identifier?: string,
 ) => {
   const response = await app.inject({
     method: 'POST',
     url: '/api/games/join',
-    payload: { code, playerName },
+    payload: { code, playerName, identifier },
   })
   expect(response.statusCode).toBe(201)
   return withCookie(response)
@@ -185,6 +209,242 @@ describe('multiplayer API', () => {
     expect(restoredB.json().state.config.resourceSchedule).toEqual(
       playerA.state.config.resourceSchedule,
     )
+  })
+
+  it('cannot commit an in-memory command after the facilitator finishes', async () => {
+    const store = new PausedCleanupStore()
+    const app = buildApp(store)
+    apps.push(app)
+    const created = await createSession(app)
+    const player = await joinSession(app, created.game.code, 'Avery')
+    await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/start`,
+      headers: auth(created.cookie),
+    })
+
+    const pause = store.pauseNextCleanup()
+    const commandPromise = app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(player.cookie),
+      payload: {
+        expectedVersion: 0,
+        idempotencyKey: randomUUID(),
+        command: { type: 'allocate' },
+      },
+    })
+    await pause.started
+
+    const ended = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/end`,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 1, endRound: 1 },
+    })
+    expect(ended.statusCode).toBe(200)
+    pause.release()
+
+    const command = await commandPromise
+    expect(command.statusCode).toBe(409)
+    expect(command.json().error.code).toBe('GAME_NOT_ACTIVE')
+  })
+
+  it('conceals penalty economics from players until the final report', async () => {
+    const app = makeApp()
+    const createdResponse = await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Morgan',
+        enabledModels: ['blue'],
+        resourcePlan: 'classic',
+        wipPenalty: { blue: 9, green: 8, red: 7, yellow: 6 },
+        notes: 'Facilitator-only observation',
+      },
+    })
+    expect(createdResponse.statusCode).toBe(201)
+    const created = withCookie(createdResponse)
+    expect(created.game.config.wipPenalty.blue).toBe(9)
+
+    const player = await joinSession(
+      app,
+      created.game.code,
+      'Avery',
+      'avery@example.edu',
+    )
+    const hidden = { blue: 0, green: 0, red: 0, yellow: 0 }
+    expect(player.game.config.wipPenalty).toEqual(hidden)
+    expect(player.state.config.wipPenalty).toEqual(hidden)
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/start`,
+      headers: auth(created.cookie),
+    })
+    const move = await app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(player.cookie),
+      payload: {
+        expectedVersion: 0,
+        idempotencyKey: randomUUID(),
+        command: {
+          type: 'move',
+          carId: player.state.cars[0].id,
+          toStage: 'manufacturing',
+          toRow: 0,
+        },
+      },
+    })
+    expect(move.statusCode).toBe(200)
+    const advance = await app.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(player.cookie),
+      payload: {
+        expectedVersion: 1,
+        idempotencyKey: randomUUID(),
+        command: { type: 'advance' },
+      },
+    })
+    expect(advance.statusCode).toBe(200)
+    expect(advance.json().state.config.wipPenalty).toEqual(hidden)
+    expect(advance.json().state.history[0].projectedPenalty).toBe(0)
+
+    const ended = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/end`,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 1, endRound: 1 },
+    })
+    expect(ended.statusCode).toBe(200)
+    expect(ended.json().report.players[0].identifier).toBe('avery@example.edu')
+
+    const finalReport = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/report`,
+      headers: auth(player.cookie),
+    })
+    expect(finalReport.statusCode).toBe(200)
+    expect(finalReport.json().players[0].projectedPenalty).toBe(9)
+    expect(finalReport.json().players[0].identifier).toBeNull()
+    expect(finalReport.json().game.config.notes).toBe('')
+    expect(finalReport.json().game.config.wipPenalty.blue).toBe(9)
+
+    const finalLastSeen = finalReport.json().players[0].lastSeenAt
+    const restoredFinished = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: auth(player.cookie),
+    })
+    expect(restoredFinished.statusCode).toBe(200)
+    expect(restoredFinished.json().participant.lastSeenAt).toBe(finalLastSeen)
+
+    const rejoinedFinishedResponse = await app.inject({
+      method: 'POST',
+      url: '/api/games/rejoin',
+      payload: {
+        code: created.game.code,
+        playerName: 'Avery',
+        recoveryCode: player.recoveryCode,
+      },
+    })
+    expect(rejoinedFinishedResponse.statusCode).toBe(200)
+    const rejoinedFinished = withCookie(rejoinedFinishedResponse)
+    expect(rejoinedFinished.participant.lastSeenAt).toBe(finalLastSeen)
+
+    const reportAfterRestore = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/report`,
+      headers: auth(rejoinedFinished.cookie),
+    })
+    expect(reportAfterRestore.statusCode).toBe(200)
+    expect(reportAfterRestore.json().players[0].lastSeenAt).toBe(finalLastSeen)
+  })
+
+  it('creates and securely reuses the full facilitator setup', async () => {
+    const app = makeApp()
+    const emptyFreshSetup = await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Nobody',
+        enabledModels: [],
+        resourcePlan: 'classic',
+      },
+    })
+    expect(emptyFreshSetup.statusCode).toBe(400)
+
+    const originalResponse = await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Morgan',
+        enabledModels: ['green', 'yellow'],
+        resourcePlan: 'evan',
+        revenue: { blue: 3, green: 11, red: 2.5, yellow: 12 },
+        wipPenalty: { blue: 1.5, green: 4, red: 1.25, yellow: 5 },
+        notes: 'First cohort',
+      },
+    })
+    expect(originalResponse.statusCode).toBe(201)
+    const original = withCookie(originalResponse)
+    expect(original.game.config).toMatchObject({
+      enabledModels: ['green', 'yellow'],
+      resourcePlan: 'evan',
+      notes: 'First cohort',
+      revenue: { green: 11, yellow: 12 },
+      wipPenalty: { green: 4, yellow: 5 },
+    })
+    expect(original.game.config.resourceSchedule).toHaveLength(25)
+
+    const rejected = await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Taylor',
+        enabledModels: [],
+        resourcePlan: 'classic',
+        reuse: {
+          code: original.game.code,
+          recoveryCode: 'incorrect-recovery-code',
+        },
+      },
+    })
+    expect(rejected.statusCode).toBe(401)
+    expect(rejected.json().error.code).toBe('INVALID_REUSE_CREDENTIALS')
+
+    const reusedResponse = await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Taylor',
+        enabledModels: ['blue'],
+        resourcePlan: 'classic',
+        notes: 'Second cohort',
+        reuse: {
+          code: original.game.code,
+          recoveryCode: original.recoveryCode,
+        },
+      },
+    })
+    expect(reusedResponse.statusCode).toBe(201)
+    const reused = withCookie(reusedResponse)
+    expect(reused.game.config).toMatchObject({
+      enabledModels: ['green', 'yellow'],
+      resourcePlan: 'evan',
+      notes: 'Second cohort',
+      revenue: { green: 11, yellow: 12 },
+      wipPenalty: { green: 4, yellow: 5 },
+    })
+    expect(reused.game.config.resourceSchedule).toEqual(
+      original.game.config.resourceSchedule,
+    )
+
+    const player = await joinSession(app, reused.game.code, 'Avery')
+    expect(player.game.config.notes).toBe('')
+    expect(player.state.config.notes).toBe('')
   })
 
   it('enforces facilitator lifecycle control and permits legacy-compatible active joins', async () => {
@@ -426,6 +686,28 @@ describe('multiplayer API', () => {
       headers: auth(other.cookie),
     })
     expect(bystander.statusCode).toBe(200)
+
+    const facilitator = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: auth(created.cookie),
+    })
+    expect(facilitator.statusCode).toBe(200)
+    expect(facilitator.json().roster).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: 'Rowan' })]),
+    )
+
+    const rejoin = await app.inject({
+      method: 'POST',
+      url: '/api/games/rejoin',
+      payload: {
+        code: created.game.code,
+        playerName: 'Rowan',
+        recoveryCode: player.recoveryCode,
+      },
+    })
+    expect(rejoin.statusCode).toBe(401)
+    expect(rejoin.json().error.code).toBe('INVALID_RECOVERY')
   })
 
   it('tells a player their screen was signed out because they continued elsewhere', async () => {
@@ -497,6 +779,22 @@ describe('multiplayer API', () => {
     })
     expect(ended.json().game.status).toBe('finished')
 
+    const recoveryAfterFinish = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}/recovery`,
+      headers: auth(created.cookie),
+    })
+    expect(recoveryAfterFinish.statusCode).toBe(409)
+    expect(recoveryAfterFinish.json().error.code).toBe('GAME_FINISHED')
+
+    const removalAfterFinish = await app.inject({
+      method: 'DELETE',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}`,
+      headers: auth(created.cookie),
+    })
+    expect(removalAfterFinish.statusCode).toBe(409)
+    expect(removalAfterFinish.json().error.code).toBe('GAME_FINISHED')
+
     // The whole point: the export still works once the game is locked.
     const exported = await app.inject({
       method: 'GET',
@@ -515,6 +813,27 @@ describe('multiplayer API', () => {
     expect(firstRound.stations).toBeDefined()
     expect(firstRound.issuedResources).toBeDefined()
     expect(firstRound.convertedResources).toBeDefined()
+
+    const playerHistory = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}/history`,
+      headers: auth(created.cookie),
+    })
+    expect(playerHistory.statusCode).toBe(200)
+    expect(playerHistory.json()).toMatchObject({
+      id: player.participant.id,
+      name: 'Rowan',
+    })
+    expect(playerHistory.json().history.length).toBe(exportedPlayer.history.length)
+    expect(playerHistory.json().history[0].stations).toBeDefined()
+
+    const historyAsPlayer = await app.inject({
+      method: 'GET',
+      url: `/api/games/${created.game.id}/participants/${player.participant.id}/history`,
+      headers: auth(player.cookie),
+    })
+    expect(historyAsPlayer.statusCode).toBe(403)
+    expect(historyAsPlayer.json().error.code).toBe('FACILITATOR_REQUIRED')
 
     // A player must not be able to pull everyone else's record.
     const asPlayer = await app.inject({

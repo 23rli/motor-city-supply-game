@@ -1,7 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import {
   createGame,
-  createRandomResourceSchedule,
   getRoundSummary,
 } from '../src/game/engine'
 import type { GameConfig, GameState } from '../src/game/types'
@@ -13,6 +12,11 @@ import type {
   RejoinSessionInput,
 } from './contracts'
 import { applyPlayerCommand } from './player-command'
+import {
+  concealConfigNotes,
+  concealPlayerConfig,
+  concealPlayerState,
+} from './player-view'
 import { calculatePlayerReport } from './report'
 import {
   hashSecret,
@@ -48,6 +52,7 @@ interface ParticipantRecord {
   recoveryHash: string
   tokenExpiresAt: string
   revokedAt: string | null
+  removedAt: string | null
   state: GameState | null
   stateVersion: number
   joinedAt: string
@@ -120,6 +125,7 @@ export interface SessionStore {
   executeCommand(token: string, input: PlayerCommandInput): Promise<PlayerCommandResult>
   getReport(token: string, gameId: string): Promise<unknown>
   getExport(token: string, gameId: string): Promise<unknown>
+  getPlayerHistory(token: string, gameId: string, participantId: string): Promise<unknown>
   issueRecoveryCode(
     token: string,
     gameId: string,
@@ -159,14 +165,16 @@ export class InMemorySessionStore implements SessionStore {
   private readonly receipts = new Map<string, CommandReceipt>()
 
   async createSession(input: CreateSessionInput): Promise<IssuedSession> {
-    const seedState = createGame({
-      enabledModels: input.enabledModels,
-      resourceSchedule: input.resourcePlan === 'random'
-        ? createRandomResourceSchedule()
-        : undefined,
-      revenue: input.revenue,
-      wipPenalty: input.wipPenalty,
-    })
+    const reusedConfig = input.reuse ? this.getReusableConfig(input.reuse) : null
+    const seedState = createGame(reusedConfig
+      ? { ...reusedConfig, notes: input.notes }
+      : {
+          enabledModels: input.enabledModels,
+          resourcePlan: input.resourcePlan,
+          revenue: input.revenue,
+          wipPenalty: input.wipPenalty,
+          notes: input.notes,
+        })
     const gameId = randomUUID()
     const facilitatorId = randomUUID()
     const secrets = issueSessionSecrets()
@@ -194,6 +202,7 @@ export class InMemorySessionStore implements SessionStore {
       recoveryHash: hashSecret(secrets.recoveryCode),
       tokenExpiresAt: secrets.tokenExpiresAt,
       revokedAt: null,
+      removedAt: null,
       state: null,
       stateVersion: 0,
       joinedAt: timestamp,
@@ -241,6 +250,7 @@ export class InMemorySessionStore implements SessionStore {
       recoveryHash: hashSecret(secrets.recoveryCode),
       tokenExpiresAt: secrets.tokenExpiresAt,
       revokedAt: null,
+      removedAt: null,
       state: createGame(session.config),
       stateVersion: 0,
       joinedAt: timestamp,
@@ -252,9 +262,9 @@ export class InMemorySessionStore implements SessionStore {
     return {
       token: secrets.token,
       recoveryCode: secrets.recoveryCode,
-      game: this.toSessionSummary(session),
+      game: this.toSessionSummary(session, true),
       participant: this.toParticipantSummary(participant),
-      state: clone(participant.state!),
+      state: concealPlayerState(participant.state!),
       stateVersion: participant.stateVersion,
     }
   }
@@ -268,7 +278,8 @@ export class InMemorySessionStore implements SessionStore {
     const participant = this.getParticipantsForGame(session.id).find(
       (candidate) =>
         candidate.normalizedName === normalizeName(input.playerName)
-        && candidate.recoveryHash === hashSecret(input.recoveryCode),
+        && candidate.recoveryHash === hashSecret(input.recoveryCode)
+        && !candidate.removedAt,
     )
     if (!participant) {
       throw new ApiError(401, 'INVALID_RECOVERY', 'The recovery details are invalid.')
@@ -281,15 +292,19 @@ export class InMemorySessionStore implements SessionStore {
     participant.recoveryHash = hashSecret(secrets.recoveryCode)
     participant.tokenExpiresAt = secrets.tokenExpiresAt
     participant.revokedAt = null
-    participant.lastSeenAt = now()
+    if (session.status !== 'finished') participant.lastSeenAt = now()
     this.participantIdsByTokenHash.set(participant.tokenHash, participant.id)
 
     return {
       token: secrets.token,
       recoveryCode: secrets.recoveryCode,
-      game: this.toSessionSummary(session),
+      game: this.toSessionSummary(session, participant.role === 'player'),
       participant: this.toParticipantSummary(participant),
-      state: participant.state ? clone(participant.state) : undefined,
+      state: participant.state
+        ? participant.role === 'player'
+          ? concealPlayerState(participant.state)
+          : clone(participant.state)
+        : undefined,
       stateVersion: participant.stateVersion,
     }
   }
@@ -302,6 +317,7 @@ export class InMemorySessionStore implements SessionStore {
   ): Promise<ReadmittedParticipant> {
     const { participant, session } = this.authenticateForGame(token, gameId)
     this.requireFacilitator(participant)
+    this.requireMutableRoster(session)
 
     const target = this.participants.get(participantId)
     if (!target || target.gameId !== session.id) {
@@ -314,6 +330,7 @@ export class InMemorySessionStore implements SessionStore {
 
     const { recoveryCode } = issueSessionSecrets()
     target.recoveryHash = hashSecret(recoveryCode)
+    target.removedAt = null
     return { participantId: target.id, name: target.name, recoveryCode }
   }
 
@@ -321,6 +338,7 @@ export class InMemorySessionStore implements SessionStore {
   async removeParticipant(token: string, gameId: string, participantId: string) {
     const { participant, session } = this.authenticateForGame(token, gameId)
     this.requireFacilitator(participant)
+    this.requireMutableRoster(session)
 
     const target = this.participants.get(participantId)
     if (!target || target.gameId !== session.id) {
@@ -338,7 +356,9 @@ export class InMemorySessionStore implements SessionStore {
       )
     }
 
-    target.revokedAt = now()
+    const timestamp = now()
+    target.revokedAt = timestamp
+    target.removedAt = timestamp
     this.participantIdsByTokenHash.delete(target.tokenHash)
     this.superseded.note(target.tokenHash, 'removed')
     return { participantId: target.id, name: target.name }
@@ -346,14 +366,18 @@ export class InMemorySessionStore implements SessionStore {
 
   async getSession(token: string) {
     const { participant, session } = this.authenticate(token)
-    participant.lastSeenAt = now()
+    if (session.status !== 'finished') participant.lastSeenAt = now()
     return {
-      game: this.toSessionSummary(session),
+      game: this.toSessionSummary(session, participant.role === 'player'),
       participant: this.toParticipantSummary(participant),
-      roster: this.getParticipantsForGame(session.id).map((member) =>
-        this.toParticipantSummary(member),
-      ),
-      state: participant.state ? clone(participant.state) : null,
+      roster: this.getParticipantsForGame(session.id)
+        .filter((member) => !member.removedAt)
+        .map((member) => this.toParticipantSummary(member)),
+      state: participant.state
+        ? participant.role === 'player'
+          ? concealPlayerState(participant.state)
+          : clone(participant.state)
+        : null,
       stateVersion: participant.stateVersion,
     }
   }
@@ -400,6 +424,8 @@ export class InMemorySessionStore implements SessionStore {
     token: string,
     input: PlayerCommandInput,
   ): Promise<PlayerCommandResult> {
+    await this.cleanupExpiredData()
+
     const { participant, session } = this.authenticate(token)
     if (participant.role !== 'player' || !participant.state) {
       throw new ApiError(403, 'PLAYER_REQUIRED', 'Only a player can change a factory state.')
@@ -407,8 +433,6 @@ export class InMemorySessionStore implements SessionStore {
     if (session.status !== 'active') {
       throw new ApiError(409, 'GAME_NOT_ACTIVE', 'The facilitator must start this game first.')
     }
-
-    await this.cleanupExpiredData()
 
     const receiptKey = `${participant.id}:${input.idempotencyKey}`
     const fingerprint = JSON.stringify({
@@ -424,7 +448,12 @@ export class InMemorySessionStore implements SessionStore {
           'That idempotency key was already used for a different command.',
         )
       }
-      return { ...clone(existingReceipt.response), repeated: true }
+      const response = clone(existingReceipt.response)
+      return {
+        ...response,
+        state: concealPlayerState(response.state),
+        repeated: true,
+      }
     }
 
     if (input.expectedVersion !== participant.stateVersion) {
@@ -443,7 +472,7 @@ export class InMemorySessionStore implements SessionStore {
     participant.stateVersion += 1
     participant.lastSeenAt = now()
     const response: PlayerCommandResult = {
-      state: clone(application.state),
+      state: concealPlayerState(application.state),
       stateVersion: participant.stateVersion,
       repeated: false,
     }
@@ -458,7 +487,7 @@ export class InMemorySessionStore implements SessionStore {
   async getReport(token: string, gameId: string) {
     const { participant, session } = this.authenticateForGame(token, gameId)
     this.requireReportAccess(participant, session)
-    return this.buildReport(session)
+    return this.buildReport(session, participant.role === 'player')
   }
 
   /** Fetched only when a facilitator downloads, so the round history stays out of the poll. */
@@ -480,6 +509,38 @@ export class InMemorySessionStore implements SessionStore {
         ...player,
         history: historyById.get(player.id) ?? [],
       })),
+    }
+  }
+
+  async getPlayerHistory(token: string, gameId: string, participantId: string) {
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
+    const target = this.participants.get(participantId)
+    if (
+      !target
+      || target.gameId !== session.id
+      || target.role !== 'player'
+      || !target.state
+      || target.removedAt
+    ) {
+      throw new ApiError(
+        404,
+        'PARTICIPANT_NOT_FOUND',
+        'That player is not in this session.',
+      )
+    }
+    const metrics = calculatePlayerReport(target.state, {
+      penaltyRound: session.penaltyRound,
+      endRound: session.endRound,
+    })
+    return {
+      id: target.id,
+      name: target.name,
+      identifier: target.identifier,
+      ...metrics,
+      stateVersion: target.stateVersion,
+      lastSeenAt: target.lastSeenAt,
+      history: [...target.state.history, getRoundSummary(target.state)],
     }
   }
 
@@ -529,6 +590,16 @@ export class InMemorySessionStore implements SessionStore {
     }
   }
 
+  private requireMutableRoster(session: SessionRecord) {
+    if (session.status === 'finished') {
+      throw new ApiError(
+        409,
+        'GAME_FINISHED',
+        'A finished game has a locked roster and report.',
+      )
+    }
+  }
+
   private requireReportAccess(
     participant: ParticipantRecord,
     session: SessionRecord,
@@ -549,7 +620,12 @@ export class InMemorySessionStore implements SessionStore {
     const maximumRound = Math.max(
       1,
       ...this.getParticipantsForGame(session.id)
-        .filter((participant) => participant.role === 'player' && participant.state)
+        .filter(
+          (participant) =>
+            participant.role === 'player'
+            && participant.state
+            && !participant.removedAt,
+        )
         .map((participant) => participant.state!.round + 1),
     )
     if (input.penaltyRound > maximumRound || input.endRound > maximumRound) {
@@ -578,12 +654,33 @@ export class InMemorySessionStore implements SessionStore {
     throw new ApiError(503, 'CODE_EXHAUSTED', 'Could not allocate a game code.')
   }
 
-  private toSessionSummary(session: SessionRecord) {
+  private getReusableConfig(reuse: NonNullable<CreateSessionInput['reuse']>) {
+    const gameId = this.sessionIdsByCode.get(reuse.code)
+    const session = gameId ? this.sessions.get(gameId) : undefined
+    const facilitator = session ? this.participants.get(session.facilitatorId) : undefined
+    if (
+      !session
+      || !facilitator
+      || facilitator.removedAt
+      || facilitator.recoveryHash !== hashSecret(reuse.recoveryCode)
+    ) {
+      throw new ApiError(
+        401,
+        'INVALID_REUSE_CREDENTIALS',
+        'The previous facilitator details are invalid.',
+      )
+    }
+    return clone(session.config)
+  }
+
+  private toSessionSummary(session: SessionRecord, concealPenalty = false) {
     return {
       id: session.id,
       code: session.code,
       status: session.status,
-      config: clone(session.config),
+      config: concealPenalty
+        ? concealPlayerConfig(session.config)
+        : clone(session.config),
       createdAt: session.createdAt,
       startedAt: session.startedAt,
       endedAt: session.endedAt,
@@ -603,9 +700,14 @@ export class InMemorySessionStore implements SessionStore {
     }
   }
 
-  private buildReport(session: SessionRecord) {
+  private buildReport(session: SessionRecord, playerView = false) {
     const players = this.getParticipantsForGame(session.id)
-      .filter((participant) => participant.role === 'player' && participant.state)
+      .filter(
+        (participant) =>
+          participant.role === 'player'
+          && participant.state
+          && !participant.removedAt,
+      )
       .map((participant) => {
         const metrics = calculatePlayerReport(participant.state!, {
           penaltyRound: session.penaltyRound,
@@ -614,13 +716,15 @@ export class InMemorySessionStore implements SessionStore {
         return {
           id: participant.id,
           name: participant.name,
-          identifier: participant.identifier,
+          identifier: playerView ? null : participant.identifier,
           ...metrics,
           stateVersion: participant.stateVersion,
           lastSeenAt: participant.lastSeenAt,
         }
       })
       .sort((left, right) => right.projectedScore - left.projectedScore)
-    return { game: this.toSessionSummary(session), players }
+    const game = this.toSessionSummary(session)
+    if (playerView) game.config = concealConfigNotes(game.config)
+    return { game, players }
   }
 }

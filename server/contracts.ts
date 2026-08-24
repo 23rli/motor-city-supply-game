@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CAR_MODELS, RESOURCES, STAGES } from '../src/game/types'
+import { CAR_MODELS, RESOURCES, RESOURCE_PLANS, STAGES } from '../src/game/types'
 
 const nameSchema = z.string().trim().min(1).max(80)
 const carModelSchema = z.enum(CAR_MODELS)
@@ -21,14 +21,27 @@ const resourcePoolSchema = z.object({
 
 export const createSessionSchema = z.object({
   facilitatorName: nameSchema,
-  enabledModels: z.array(carModelSchema).min(1).max(4).refine(
+  enabledModels: z.array(carModelSchema).max(4).refine(
     (models) => new Set(models).size === models.length,
     'Models must be unique.',
   ),
-  resourcePlan: z.enum(['classic', 'random']).default('classic'),
+  resourcePlan: z.enum(RESOURCE_PLANS).default('classic'),
   revenue: modelValuesSchema.optional(),
   wipPenalty: modelValuesSchema.optional(),
-}).strict()
+  notes: z.string().trim().max(2_000).default(''),
+  reuse: z.object({
+    code: z.string().trim().toUpperCase().regex(/^[A-Z2-9]{6}$/),
+    recoveryCode: z.string().min(20).max(128),
+  }).strict().optional(),
+}).strict().superRefine((input, context) => {
+  if (!input.reuse && input.enabledModels.length === 0) {
+    context.addIssue({
+      code: 'custom',
+      path: ['enabledModels'],
+      message: 'Select at least one model for a new setup.',
+    })
+  }
+})
 
 export const joinSessionSchema = z.object({
   code: z.string().trim().toUpperCase().regex(/^[A-Z2-9]{6}$/),

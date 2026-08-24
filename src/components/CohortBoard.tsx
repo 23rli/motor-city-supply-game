@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Download, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
 import { RESOURCES } from '../game/types'
-import { STALL_AFTER_MS, buildCohortCsv, summarizeCohort } from '../team/cohort'
+import {
+  STALL_AFTER_MS,
+  buildCohortCsv,
+  cohortReferenceTime,
+  summarizeCohort,
+} from '../team/cohort'
 import { buildSessionWorkbook } from '../team/sessionWorkbook'
 import type { TeamExport, TeamPlayerReport } from '../team/types'
 
@@ -12,6 +17,7 @@ interface CohortBoardProps {
   players: TeamPlayerReport[]
   code: string
   finished: boolean
+  endedAt: string | null
   onReadmit: (player: TeamPlayerReport) => void
   onRemove: (player: TeamPlayerReport) => void
   onExport: () => Promise<TeamExport>
@@ -23,6 +29,7 @@ export function CohortBoard({
   players,
   code,
   finished,
+  endedAt,
   onReadmit,
   onRemove,
   onExport,
@@ -33,24 +40,26 @@ export function CohortBoard({
   const [confirming, setConfirming] = useState<string | null>(null)
   const [building, setBuilding] = useState(false)
   const [workbookError, setWorkbookError] = useState<string | null>(null)
-  const summary = summarizeCohort(players, now)
+  const referenceTime = cohortReferenceTime(finished, endedAt, now)
+  const summary = summarizeCohort(players, referenceTime)
 
   // Without its own tick, a board that goes quiet after this mounted would never be flagged.
   useEffect(() => {
+    if (finished) return
     const timer = window.setInterval(() => setNow(Date.now()), 15_000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [finished])
 
   // A facilitator scans for trouble, so lead with the quiet boards and the ones furthest behind.
   const ordered = useMemo(
     () =>
       [...players].sort((left, right) => {
-        const leftQuiet = now - Date.parse(left.lastSeenAt) > STALL_AFTER_MS
-        const rightQuiet = now - Date.parse(right.lastSeenAt) > STALL_AFTER_MS
+        const leftQuiet = referenceTime - Date.parse(left.lastSeenAt) > STALL_AFTER_MS
+        const rightQuiet = referenceTime - Date.parse(right.lastSeenAt) > STALL_AFTER_MS
         if (leftQuiet !== rightQuiet) return leftQuiet ? -1 : 1
         return left.currentRound - right.currentRound
       }),
-    [players, now],
+    [players, referenceTime],
   )
 
   const saveFile = (data: BlobPart, filename: string, type: string) => {
@@ -67,7 +76,7 @@ export function CohortBoard({
   }
 
   const download = () => {
-    setNow(Date.now())
+    if (!finished) setNow(Date.now())
     saveFile(buildCohortCsv(players), `motor-city-${code}-cohort.csv`, 'text/csv;charset=utf-8')
   }
 
@@ -164,7 +173,7 @@ export function CohortBoard({
 
       <div className="cohort-grid">
         {ordered.map((player) => {
-          const quiet = now - Date.parse(player.lastSeenAt) > STALL_AFTER_MS
+          const quiet = referenceTime - Date.parse(player.lastSeenAt) > STALL_AFTER_MS
           const wip = totalOf(player.wip)
           return (
             <article className={`cohort-card${quiet ? ' card-quiet' : ''}`} key={player.id}>

@@ -24,20 +24,21 @@ The rebuild is live alongside the original and covers:
 - two-round paint processing with capacity three
 - exact four-for-one resource conversion
 - round reset checkpoints and local session recovery
-- classic and random resource plans
-- live revenue, WIP, projected penalty, and round history
-- configurable models, end-run summary, and CSV export
+- classic, original 25-round team, and random resource plans
+- configurable models, economics, notes, and secure reuse of prior facilitator setups
+- live revenue and WIP with penalty economics revealed only after the run
+- model-by-model round history, confirmed terminal solo summary, and CSV export
 - responsive mouse, touch, and keyboard controls
 - independent player factories sharing one facilitator schedule
 - create, join, secure rejoin, start, end, roster, and leaderboard flows
-- facilitator-selected WIP and report cutoff rounds
-- live ranked leaderboard with ties, movement, podium, and sortable columns
+- facilitator elapsed clock plus selected WIP and report cutoff rounds
+- live ranked leaderboard with ties, movement, podium, throughput, and sortable columns
 - optional student identifiers carried through to the results
-- per-round station and resource breakdowns, peak and average WIP, and throughput
+- on-demand per-player station/resource drill-down, peak and average WIP, and throughput
 - cohort low/high/median/mean statistics
-- a dependency-free multi-sheet Excel export, plus the original CSV
+- a dependency-free multi-sheet Excel export with Game Details, plus the original CSV
 - a projector view showing place, name, turn, and revenue only
-- facilitator removal and recovery-code reissue for players
+- durable facilitator removal and recovery-code reissue for players
 - authoritative server commands with optimistic versions and idempotency
 - HttpOnly 12-hour sessions, revocation, and rotating recovery codes
 - embedded PostgreSQL locally and pooled PostgreSQL in production

@@ -20,9 +20,15 @@ and one on your own screen. The section [Two screens](#two-screens) explains how
 1. Go to the address above.
 2. Under **Team session**, choose **Facilitate**.
 3. Fill in **Facilitator name**.
-4. Under **Active models**, tick the car models you want in play. Under **Resource plan**,
-   choose *Classic demo sequence* (the original fixed sequence) or *Random 100 rounds*.
-5. Press **Create session**.
+4. Choose the active models and resource plan: the classic 10-round sequence, the original
+  25-round team sequence, or a random 100-round sequence.
+5. Adjust per-model revenue and WIP rates if this class uses different economics, and add any
+  notes you want preserved in the workbook.
+6. Press **Create session**.
+
+To repeat an earlier setup, select **Reuse a previous facilitator setup** and enter that run's
+join code and facilitator recovery code. The exact models, economics, and resource schedule are
+copied; notes are entered for the new class.
 
 You now have two codes:
 
@@ -49,6 +55,7 @@ Each student:
 
 The student ID is optional but worth asking for — it appears next to their name in the results,
 which makes matching the export to your gradebook straightforward.
+It is facilitator-only: other students do not receive cohort identifiers in their final report.
 
 Names appear on your roster as students arrive. Nobody can move anything yet.
 
@@ -69,10 +76,11 @@ Your screen shows:
 
 - **Leaderboard** — live standings, ordered by revenue
 - **Factory floor** — a card per student, showing where their cars are sitting
-- **Control** — the two settings below, and the button to end the run
+- **Control** — elapsed session time, the two scoring settings below, and the button to end the run
 
-While the game is running, nothing on screen mentions unfinished cars, the penalty, or the final
-score — not even on your own console. That is deliberate. See [The reveal](#the-reveal).
+While the game is running, student boards and the projector do not reveal WIP rates, monetary
+penalties, or projected scores. Your facilitator setup and scoring controls retain those values
+so you can administer the run. See [The reveal](#the-reveal).
 
 Two settings control scoring. You can change them at any point while the game is running:
 
@@ -92,6 +100,12 @@ you try.
   **New code for [name]**. A code appears at the top of your screen. Read it to them, then
   press **Done**.
 - **Someone joined by mistake, or twice** — press **Remove** on their card, then confirm.
+  Removal revokes their browser and recovery code; they cannot rejoin themselves afterward.
+  The roster locks when you end the run, so removal and recovery-code changes are unavailable
+  once final results have been calculated.
+
+Select a student's name in the leaderboard to open their complete round history. The detail view
+shows every model at every station plus issued, exchanged, and unused resources, 12 rounds per page.
 
 ---
 
@@ -135,8 +149,8 @@ reveal whenever it suits you.
 
 Press **End production**, then **Yes, end it**.
 
-Scores lock at the round you chose, and students can no longer move cars. They keep seeing their
-own final board and summary.
+Scores lock at the round you chose, and students can no longer move cars. They return to the
+finished session room where the final report is available.
 
 Your leaderboard now gains the columns that were hidden during play: WIP exposure, peak and
 average work in progress, and the final score. The projector does not change until you press
@@ -151,6 +165,8 @@ You can still download the results afterwards — ending the run does not close 
 Two buttons sit at the top of the Factory floor:
 
 - **Excel workbook** — the one to use. It opens directly in Excel and contains:
+  - *Game Details* — join code, lifecycle timestamps, models, plan, notes, economics, scoring
+    cutoffs, and the exact resource schedule
   - *Player Overview* — one row per student: revenue, penalty, score, unfinished cars,
     peak and average work in progress, throughput, and their student ID
   - *Game Stats* — low, high, median, and mean across the class for each of those measures
@@ -165,13 +181,14 @@ Both work after the run has ended. Download them whenever you like; the session 
 
 ## Things worth knowing
 
-- **The rules are the original game's.** Recipes, timings, paint booth capacity, the four-for-one
-  exchange, and the economics all behave exactly as they always have.
+- **The factory rules preserve the original formulas and flow.** The automatic gameplay timer is
+  intentionally omitted; your console clock reports elapsed session time but never advances a round.
 - **Students never see each other's numbers** unless you project them. Their own screen shows
   their own factory only.
 - **During the game, standings are revenue only.** The cost of unfinished cars is applied once,
   at the end, when you reveal it — and the order can change sharply. Students who have worked
   out that piling up cars is expensive will be watching for it.
-- **A session lasts 12 hours**, then it is cleared. Download the workbook before you leave.
+- **A browser session credential lasts 12 hours.** Download the workbook before you leave; data
+  retention is managed separately from browser sign-in expiry.
 - **Closing your browser does not end the game.** Students keep playing. Use your recovery code
   to get back in.

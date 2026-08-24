@@ -18,13 +18,18 @@ import {
 } from 'lucide-react'
 import MotorCityApp from '../MotorCityApp'
 import { CohortBoard } from '../components/CohortBoard'
+import { Modal } from '../components/Modal'
+import { PlayerRoundHistory } from '../components/PlayerRoundHistory'
 import { PresenterView } from '../components/PresenterView'
+import { CAR_MODELS } from '../game/types'
 import { ApiClientError, teamApi } from './api'
+import { formatElapsedTime } from './elapsed'
 import { podium, rankPlayers, rankSnapshot, sortLeaderboard, type SortDirection, type SortKey } from './leaderboard'
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
 import type {
   PlayerCommand,
   TeamReport,
+  TeamExportPlayer,
   TeamSessionSnapshot,
 } from './types'
 
@@ -64,6 +69,11 @@ export function TeamSession({
   const [copied, setCopied] = useState(false)
   const [ending, setEnding] = useState(false)
   const [presenting, setPresenting] = useState(false)
+  const [clockTime, setClockTime] = useState(Date.now())
+  const [historyName, setHistoryName] = useState('')
+  const [historyPlayer, setHistoryPlayer] = useState<TeamExportPlayer | null>(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const historyRequest = useRef(0)
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const finished = snapshot?.game.status === 'finished'
@@ -89,6 +99,7 @@ export function TeamSession({
             ['penalty', 'WIP exposure'],
             ['peakWip', 'Peak WIP'],
             ['averageWip', 'Avg WIP'],
+            ['throughput', 'Cars shipped'],
             ['score', 'Score'],
           ] as [SortKey, string][]
         : []),
@@ -127,6 +138,13 @@ export function TeamSession({
     const timer = window.setTimeout(() => setShowResumed(false), 5_000)
     return () => window.clearTimeout(timer)
   }, [showResumed])
+
+  useEffect(() => {
+    if (snapshot?.game.status !== 'active') return
+    setClockTime(Date.now())
+    const timer = window.setInterval(() => setClockTime(Date.now()), 1_000)
+    return () => window.clearInterval(timer)
+  }, [snapshot?.game.status])
 
   const snapshotFingerprint = (value: TeamSessionSnapshot) => JSON.stringify({
     game: value.game,
@@ -293,6 +311,32 @@ export function TeamSession({
     }
   }
 
+  const openPlayerHistory = async (player: { id: string; name: string }) => {
+    const requestId = ++historyRequest.current
+    setHistoryName(player.name)
+    setHistoryPlayer(null)
+    setHistoryLoading(true)
+    setError(null)
+    try {
+      const selected = await teamApi.getPlayerHistory(snapshot.game.id, player.id)
+      if (requestId !== historyRequest.current) return
+      setHistoryPlayer(selected)
+    } catch (caught) {
+      if (requestId !== historyRequest.current) return
+      setError(caught instanceof ApiClientError ? caught.message : 'The player history could not be loaded.')
+      setHistoryName('')
+    } finally {
+      if (requestId === historyRequest.current) setHistoryLoading(false)
+    }
+  }
+
+  const closePlayerHistory = () => {
+    historyRequest.current += 1
+    setHistoryLoading(false)
+    setHistoryPlayer(null)
+    setHistoryName('')
+  }
+
   const removePlayer = async (player: { id: string; name: string }) => {
     setBusy(true)
     setError(null)
@@ -426,7 +470,11 @@ export function TeamSession({
             <div className="panel-heading"><div><p>Session</p><h2 id="control-title">Control</h2></div></div>
             {snapshot.participant.role === 'facilitator' ? (
               <>
-                <dl className="session-details"><div><dt>Car models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div><div><dt>Players</dt><dd>{snapshot.roster.filter((member) => member.role === 'player').length}</dd></div></dl>
+                <dl className="session-details">
+                  <div><dt>Car models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div>
+                  <div><dt>Players</dt><dd>{snapshot.roster.filter((member) => member.role === 'player').length}</dd></div>
+                  <div><dt>Elapsed</dt><dd className="elapsed-clock">{formatElapsedTime(snapshot.game.startedAt, snapshot.game.endedAt, clockTime)}</dd></div>
+                </dl>
                 {snapshot.game.status === 'waiting' && <button className="button button-primary control-action" type="button" disabled={busy} onClick={() => void runLifecycle('start')}><Play size={17} fill="currentColor" /> Start production</button>}
                 {snapshot.game.status === 'active' && (
                   <>
@@ -511,6 +559,7 @@ export function TeamSession({
             players={report?.players ?? []}
             code={snapshot.game.code}
             finished={snapshot.game.status === 'finished'}
+            endedAt={snapshot.game.endedAt}
             onReadmit={(player) => void readmitPlayer(player)}
             onRemove={(player) => void removePlayer(player)}
             onExport={() => teamApi.getExport(snapshot.game.id)}
@@ -597,7 +646,11 @@ export function TeamSession({
                         </span>
                       </td>
                       <td>
-                        {entry.player.name}
+                        {snapshot.participant.role === 'facilitator' ? (
+                          <button className="player-history-trigger" type="button" onClick={() => void openPlayerHistory(entry.player)}>
+                            {entry.player.name}
+                          </button>
+                        ) : entry.player.name}
                         {entry.player.identifier && (
                           <span className="leaderboard-identifier">{entry.player.identifier}</span>
                         )}
@@ -610,6 +663,14 @@ export function TeamSession({
                           <td>${entry.player.projectedPenalty.toFixed(2)}</td>
                           <td>{entry.player.peakWip}</td>
                           <td>{entry.player.averageWip}</td>
+                          <td>
+                            <strong>{entry.player.throughput}</strong>
+                            <span className="throughput-breakdown">
+                              {CAR_MODELS.map((model) => (
+                                `${model.slice(0, 1).toUpperCase()} ${entry.player.completed[model]}`
+                              )).join(' / ')}
+                            </span>
+                          </td>
                           <td><strong>${entry.player.projectedScore.toFixed(2)}</strong></td>
                         </>
                       )}
@@ -656,6 +717,17 @@ export function TeamSession({
           </section>
         )}
       </main>
+      <Modal
+        open={historyLoading || Boolean(historyPlayer)}
+        eyebrow="Facilitator detail"
+        title={`${historyName} / round history`}
+        onClose={closePlayerHistory}
+        extraWide
+      >
+        {historyLoading ? (
+          <p className="history-loading" role="status">Loading round history...</p>
+        ) : historyPlayer ? <PlayerRoundHistory player={historyPlayer} /> : null}
+      </Modal>
     </div>
   )
 }

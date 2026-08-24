@@ -1,4 +1,4 @@
-import { ArrowRight, Package, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowRight, Gauge, Package, TrendingUp } from 'lucide-react'
 import { RESOURCES, type GameState, type RoundSummary } from '../game/types'
 
 interface RoundBriefingProps {
@@ -43,10 +43,8 @@ export function RoundBriefing({ game, previous, onDismiss }: RoundBriefingProps)
               <dd>${previous.revenue.toFixed(2)}</dd>
             </div>
             <div>
-              <dt><TrendingDown size={14} aria-hidden="true" /> WIP exposure</dt>
-              <dd className="briefing-penalty">
-                {wip} car{wip === 1 ? '' : 's'} / ${previous.projectedPenalty.toFixed(2)}
-              </dd>
+              <dt><Gauge size={14} aria-hidden="true" /> Work in process</dt>
+              <dd>{wip} car{wip === 1 ? '' : 's'}</dd>
             </div>
           </dl>
 

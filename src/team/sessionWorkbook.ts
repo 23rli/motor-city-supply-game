@@ -17,6 +17,39 @@ const STATION_LABELS: Record<string, string> = {
 
 /** Mirrors the sheets the original game exported: an overview, the cohort stats, then each player. */
 export function buildSessionWorkbook(data: TeamExport, now = new Date()) {
+  const details: Sheet = {
+    name: 'Game Details',
+    rows: [
+      ['Game detail', 'Value'],
+      ['Join code', data.game.code],
+      ['Status', data.game.status],
+      ['Resource plan', data.game.config.resourcePlan],
+      ['Enabled models', data.game.config.enabledModels.join(', ')],
+      ['Notes', data.game.config.notes],
+      ['Created at', data.game.createdAt],
+      ['Started at', data.game.startedAt ?? ''],
+      ['Ended at', data.game.endedAt ?? ''],
+      ['Scored through round', data.game.endRound],
+      ['WIP measured at round', data.game.penaltyRound],
+      ['Exported at', now.toISOString()],
+      [],
+      ['Model', 'Revenue', 'WIP rate'],
+      ...CAR_MODELS.map((model) => [
+        model,
+        data.game.config.revenue[model],
+        data.game.config.wipPenalty[model],
+      ]),
+      [],
+      ['Resource round', 'Red', 'Yellow', 'Blue'],
+      ...data.game.config.resourceSchedule.map((pool, index) => [
+        index + 1,
+        pool.red,
+        pool.yellow,
+        pool.blue,
+      ]),
+    ],
+  }
+
   const overview: Sheet = {
     name: 'Player Overview',
     rows: [
@@ -89,5 +122,5 @@ export function buildSessionWorkbook(data: TeamExport, now = new Date()) {
     ],
   }))
 
-  return buildWorkbook([overview, gameStats, ...perPlayer], now)
+  return buildWorkbook([details, overview, gameStats, ...perPlayer], now)
 }

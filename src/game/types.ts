@@ -4,6 +4,9 @@ export type Resource = (typeof RESOURCES)[number]
 export const CAR_MODELS = ['blue', 'green', 'red', 'yellow'] as const
 export type CarModel = (typeof CAR_MODELS)[number]
 
+export const RESOURCE_PLANS = ['classic', 'evan', 'random'] as const
+export type ResourcePlan = (typeof RESOURCE_PLANS)[number]
+
 export const STAGES = [
   'planning',
   'manufacturing',
@@ -29,10 +32,17 @@ export interface Car {
 
 export interface GameConfig {
   enabledModels: CarModel[]
+  resourcePlan: ResourcePlan
   resourceSchedule: ResourcePool[]
   revenue: ModelValues
   wipPenalty: ModelValues
+  notes: string
 }
+
+export type GameSetup = Pick<
+  GameConfig,
+  'enabledModels' | 'resourcePlan' | 'revenue' | 'wipPenalty' | 'notes'
+>
 
 /** Where cars were standing at the close of a round. "dry" is paint that has finished curing. */
 export const ROUND_STATIONS = [
