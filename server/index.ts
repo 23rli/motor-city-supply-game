@@ -33,7 +33,7 @@ const app = buildApp(store, {
   staticRoot: config.nodeEnvironment === 'production'
     ? config.staticRoot
     : undefined,
-  trustProxy: config.nodeEnvironment === 'production',
+  trustProxy: config.nodeEnvironment === 'production' ? '127.0.0.1' : false,
   logger: true,
 })
 

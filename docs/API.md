@@ -14,7 +14,27 @@ Browser calls use same-origin `/api` routes. Session credentials are 12-hour Htt
 
 Create, join, and rejoin return a one-time recovery code in a `Cache-Control: no-store` response. Rejoin rotates it. The application displays it once and stores only a non-sensitive resume hint in local storage. Edge, proxy, and APM configuration must not log these response bodies.
 
-Create accepts enabled models, `classic | evan | random` resource plans, per-model revenue and WIP rates, and notes. A facilitator may reuse an exact prior setup by supplying that game's join code and facilitator recovery code; notes belong to the new run and are not copied. Player session payloads omit notes and replace WIP rates and historical penalty totals with zero until the final report is available.
+Create accepts enabled models, `classic | evan | random` resource plans, per-model revenue and WIP rates, notes, `penaltyRound`, `endRound`, and an optional round timer. Timer segments are contiguous one-based round ranges with whole-minute durations (60-7200 seconds), and must cover every round through `endRound`. A facilitator may reuse an exact prior setup by supplying that game's join code and facilitator recovery code; models, economics, scoring rounds, timer, and exact resource schedule are copied while notes belong to the new run. Active player payloads redact notes to an empty string, the planned WIP round to `null`, WIP rates to zero, and historical monetary penalty totals to zero.
+
+Example fresh setup:
+
+```json
+{
+  "facilitatorName": "Professor Morgan",
+  "enabledModels": ["blue", "green", "red", "yellow"],
+  "resourcePlan": "evan",
+  "penaltyRound": 10,
+  "endRound": 10,
+  "timer": {
+    "enabled": true,
+    "segments": [
+      { "startRound": 1, "endRound": 5, "durationSeconds": 600 },
+      { "startRound": 6, "endRound": 10, "durationSeconds": 300 }
+    ]
+  },
+  "notes": "Operations section A"
+}
+```
 
 ## Facilitator
 
@@ -44,7 +64,9 @@ Participant activity timestamps also freeze at finish. Player-accessible final r
 }
 ```
 
-Command types are `move`, `reposition`, `allocate`, `convert`, `advance`, and `reset`. Each successful command increments only that player's version. A stale version returns `409 STALE_STATE`; replaying the same successful command and key returns the original response without executing again.
+Command types are `move`, `reposition`, `allocate`, `convert`, `advance`, `reset`, and `timeout`. Each successful command increments only that player's version. A stale version returns `409 STALE_STATE`; replaying the same successful command and key returns the original response without executing again.
+
+`timeout` is accepted only after the server-calculated deadline. It allocates remaining resources and marks the board timed out. While timed out, every mutation except `advance` returns `409 ROUND_TIME_EXPIRED`. `advance` starts the next configured per-player timer. Session and command responses include `roundStartedAt` and `roundTimedOut` so countdown state survives refresh, rejoin, and database restart.
 
 ## Persistence
 

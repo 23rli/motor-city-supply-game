@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { CAR_MODELS, RESOURCES, RESOURCE_PLANS, STAGES } from '../src/game/types'
+import { defaultEndRound, validateTimerCoverage } from '../src/game/timer'
 
 const nameSchema = z.string().trim().min(1).max(80)
 const carModelSchema = z.enum(CAR_MODELS)
@@ -19,6 +20,20 @@ const resourcePoolSchema = z.object({
   blue: z.number().int().nonnegative(),
 }).strict()
 
+const roundTimerSegmentSchema = z.object({
+  startRound: z.number().int().min(1).max(10_000),
+  endRound: z.number().int().min(1).max(10_000),
+  durationSeconds: z.number().int().min(60).max(7_200).refine(
+    (seconds) => seconds % 60 === 0,
+    'Timer durations must be whole minutes.',
+  ),
+}).strict()
+
+const roundTimerSchema = z.object({
+  enabled: z.boolean(),
+  segments: z.array(roundTimerSegmentSchema).max(100),
+}).strict()
+
 export const createSessionSchema = z.object({
   facilitatorName: nameSchema,
   enabledModels: z.array(carModelSchema).max(4).refine(
@@ -29,6 +44,9 @@ export const createSessionSchema = z.object({
   revenue: modelValuesSchema.optional(),
   wipPenalty: modelValuesSchema.optional(),
   notes: z.string().trim().max(2_000).default(''),
+  penaltyRound: z.number().int().min(1).max(10_000).optional(),
+  endRound: z.number().int().min(1).max(10_000).optional(),
+  timer: roundTimerSchema.optional(),
   reuse: z.object({
     code: z.string().trim().toUpperCase().regex(/^[A-Z2-9]{6}$/),
     recoveryCode: z.string().min(20).max(128),
@@ -40,6 +58,23 @@ export const createSessionSchema = z.object({
       path: ['enabledModels'],
       message: 'Select at least one model for a new setup.',
     })
+  }
+  if (!input.reuse) {
+    const endRound = input.endRound ?? defaultEndRound(input.resourcePlan)
+    const penaltyRound = input.penaltyRound ?? endRound
+    if (penaltyRound > endRound) {
+      context.addIssue({
+        code: 'custom',
+        path: ['penaltyRound'],
+        message: 'The WIP measurement round cannot be after the final round.',
+      })
+    }
+    if (input.timer) {
+      const timerError = validateTimerCoverage(input.timer, endRound)
+      if (timerError) {
+        context.addIssue({ code: 'custom', path: ['timer'], message: timerError })
+      }
+    }
   }
 })
 
@@ -85,6 +120,7 @@ const commandSchema = z.discriminatedUnion('type', [
     toRow: z.number().int().min(0).max(7),
   }).strict(),
   z.object({ type: z.literal('allocate') }).strict(),
+  z.object({ type: z.literal('timeout') }).strict(),
   z.object({
     type: z.literal('convert'),
     spend: resourcePoolSchema,

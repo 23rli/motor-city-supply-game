@@ -157,6 +157,10 @@ export function createGame(
     revenue: { ...DEFAULT_REVENUE, ...overrides.revenue },
     wipPenalty: { ...DEFAULT_WIP_PENALTY, ...overrides.wipPenalty },
     notes: overrides.notes ?? '',
+    timer: {
+      enabled: overrides.timer?.enabled ?? false,
+      segments: (overrides.timer?.segments ?? []).map((segment) => ({ ...segment })),
+    },
   }
 
   const cars = config.enabledModels.map((model, row) =>
@@ -180,6 +184,12 @@ export function createGame(
     checkpoint: cloneSnapshot(initial),
     history: [],
   }
+}
+
+export function normalizeGameState(state: GameState): GameState {
+  const normalized = structuredClone(state)
+  normalized.config = createGame(normalized.config).config
+  return normalized
 }
 
 const stageResource = (stage: Stage): Resource | null => {

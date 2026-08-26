@@ -1,4 +1,5 @@
 import type { GameConfig, GameState, ModelValues } from '../src/game/types'
+import { normalizeGameState } from '../src/game/engine'
 
 const HIDDEN_PENALTIES: ModelValues = {
   blue: 0,
@@ -22,7 +23,7 @@ export function concealPlayerConfig(config: GameConfig): GameConfig {
 }
 
 export function concealPlayerState(state: GameState): GameState {
-  const visible = structuredClone(state)
+  const visible = normalizeGameState(state)
   visible.config = concealPlayerConfig(visible.config)
   visible.history = visible.history.map((round) => ({
     ...round,

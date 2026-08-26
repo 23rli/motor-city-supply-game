@@ -20,6 +20,17 @@ export type Stage = (typeof STAGES)[number]
 export type ResourcePool = Record<Resource, number>
 export type ModelValues = Record<CarModel, number>
 
+export interface RoundTimerSegment {
+  startRound: number
+  endRound: number
+  durationSeconds: number
+}
+
+export interface RoundTimerConfig {
+  enabled: boolean
+  segments: RoundTimerSegment[]
+}
+
 export interface Car {
   id: string
   model: CarModel
@@ -37,12 +48,19 @@ export interface GameConfig {
   revenue: ModelValues
   wipPenalty: ModelValues
   notes: string
+  timer: RoundTimerConfig
 }
 
 export type GameSetup = Pick<
   GameConfig,
   'enabledModels' | 'resourcePlan' | 'revenue' | 'wipPenalty' | 'notes'
 >
+
+export interface SessionPlan {
+  penaltyRound: number
+  endRound: number
+  timer: RoundTimerConfig
+}
 
 /** Where cars were standing at the close of a round. "dry" is paint that has finished curing. */
 export const ROUND_STATIONS = [

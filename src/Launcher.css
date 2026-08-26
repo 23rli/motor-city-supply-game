@@ -719,6 +719,8 @@
 .session-details div { display: grid; gap: 4px; }
 .session-details dt { color: #5b6864; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .session-details dd { margin: 0; font: 700 20px/1 var(--font-display); }
+.session-details .session-timer-plan { grid-column: 1 / -1; }
+.session-details .session-timer-plan dd { font-size: 14px; line-height: 1.35; }
 .end-settings { padding: 0 18px 12px; display: grid; gap: 14px; }
 .end-settings label { min-width: 0; display: grid; gap: 5px; }
 .end-settings span { color: #253330; font-size: 14px; font-weight: 700; }
@@ -831,3 +833,50 @@
 .reuse-fields { display: grid; gap: 12px; }
 .reuse-fields label { display: grid; gap: 7px; }
 .reuse-fields label > span { color: #53625d; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.session-plan-fields { margin: 0; padding: 16px; display: grid; gap: 12px; border: 1px solid #c8d0cd; border-radius: 5px; background: #f2f5f3; }
+.session-plan-fields > legend { padding: 0 6px; color: #253330; font: 700 14px/1 var(--font-display); text-transform: uppercase; }
+.session-round-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.session-plan-field { min-width: 0; display: grid; gap: 5px; }
+.session-plan-label { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.session-plan-label > label { color: #253330; font-size: 13px; font-weight: 800; text-transform: uppercase; }
+.session-round-fields input, .timer-block input { width: 100%; min-height: 44px; padding: 0 9px; color: #17201e; background: #fff; border: 1px solid #aeb9b5; border-radius: 4px; font: 700 16px/1 var(--font-display); }
+.info-tip { position: relative; display: inline-grid; place-items: center; flex: none; }
+.info-tip-trigger { width: 44px; height: 44px; display: grid; place-items: center; color: #53625d; background: transparent; border: 0; border-radius: 4px; cursor: help; }
+.info-tip-trigger:hover { color: #167565; background: #e5eeeb; }
+.info-tip-trigger:focus-visible, .timer-schedule > summary:focus-visible, .setup-icon-button:focus-visible { outline: 3px solid #49a9da; outline-offset: 2px; }
+.info-tip-content { position: absolute; z-index: 20; top: calc(100% + 5px); right: 0; width: min(250px, calc(100vw - 36px)); padding: 9px 11px; visibility: hidden; color: #f4faf8; background: #17201e; border: 1px solid #42514d; border-radius: 4px; box-shadow: 0 8px 20px rgb(18 31 28 / 24%); font-size: 13px; font-weight: 550; line-height: 1.35; opacity: 0; pointer-events: auto; transform: translateY(-3px); }
+.info-tip[data-open='true'] .info-tip-content { visibility: visible; opacity: 1; transform: none; }
+.timer-toggle-shell { min-height: 60px; display: grid; grid-template-columns: 1fr auto; align-items: center; color: #33413d; background: #fff; border: 1px solid #c8d0cd; border-left: 4px solid #16806f; border-radius: 4px; }
+.timer-toggle { min-height: 58px; padding: 0 8px; display: grid !important; grid-template-columns: auto auto 1fr !important; align-items: center; gap: 10px !important; color: inherit; cursor: pointer; }
+.timer-toggle input { width: 21px; min-height: 21px; accent-color: #167565; }
+.timer-toggle strong { font-size: 15px; }
+.timer-toggle-shell > .info-tip { margin-right: 7px; }
+.timer-setup { display: grid; gap: 9px; }
+.timer-consequence { min-height: 46px; padding: 8px 10px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; color: #554817; background: #fff8df; border-left: 4px solid #d4a72c; border-radius: 3px; }
+.timer-consequence p { margin: 0; font-size: 13px; line-height: 1.35; }
+.timer-schedule { background: #fff; border: 1px solid #c8d0cd; border-radius: 4px; }
+.timer-schedule > summary { min-height: 58px; padding: 8px 11px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; color: #253330; cursor: pointer; list-style: none; }
+.timer-schedule > summary::-webkit-details-marker { display: none; }
+.timer-schedule > summary > span { min-width: 0; display: grid; gap: 4px; }
+.timer-schedule > summary strong { font: 700 14px/1 var(--font-display); text-transform: uppercase; }
+.timer-schedule > summary small { overflow: hidden; color: #5d6b67; font-size: 12px; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.timer-schedule > summary svg { transition: transform 150ms ease; }
+.timer-schedule[open] > summary svg { transform: rotate(180deg); }
+.timer-schedule-body { padding: 0 10px 10px; display: grid; gap: 8px; }
+.timer-blocks-head, .timer-block { display: grid; grid-template-columns: 52px minmax(64px, 1fr) minmax(72px, 1fr) 44px; align-items: center; gap: 8px; }
+.timer-blocks-head { padding: 5px 0 2px; color: #687773; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.timer-blocks { display: grid; gap: 7px; }
+.timer-block { min-height: 58px; padding: 7px 0; color: #3d4b47; border-top: 1px solid #d9dfdd; }
+.timer-block:focus-within { background: #f1f7f5; }
+.timer-block > strong { font: 700 14px/1 var(--font-display); white-space: nowrap; }
+.setup-icon-button { width: 44px; height: 44px; color: #6d4943; border-color: #cbb8b4; }
+.setup-icon-button:hover:not(:disabled) { background: #f7eeec; }
+.setup-icon-button:disabled { opacity: .35; cursor: not-allowed; }
+.timer-setup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.timer-setup-actions .button { min-height: 44px; font-size: 13px; }
+
+@media (max-width: 520px) {
+  .session-round-fields { grid-template-columns: 1fr; }
+  .timer-blocks-head, .timer-block { grid-template-columns: 46px minmax(58px, 1fr) minmax(66px, 1fr) 44px; gap: 6px; }
+  .timer-setup-actions { display: grid; grid-template-columns: 1fr; }
+}

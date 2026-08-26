@@ -1,5 +1,6 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useDialogFocus } from './useDialogFocus'
 
 interface ModalProps {
   open: boolean
@@ -22,17 +23,7 @@ export function Modal({
   extraWide,
   dismissible = true,
 }: ModalProps) {
-  const panelRef = useRef<HTMLElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    panelRef.current?.focus()
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (dismissible && event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [dismissible, open, onClose])
+  const panelRef = useDialogFocus<HTMLElement>(open, onClose, dismissible)
 
   if (!open) return null
 

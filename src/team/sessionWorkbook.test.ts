@@ -63,6 +63,13 @@ const data = (players: TeamExportPlayer[]): TeamExport => ({
       revenue: { blue: 3, green: 2, red: 2.5, yellow: 2.5 },
       wipPenalty: { blue: 1.5, green: 1, red: 1.25, yellow: 1.25 },
       notes: 'Evening cohort',
+      timer: {
+        enabled: true,
+        segments: [
+          { startRound: 1, endRound: 5, durationSeconds: 600 },
+          { startRound: 6, endRound: 10, durationSeconds: 300 },
+        ],
+      },
     },
     createdAt: '2026-08-02T08:00:00.000Z',
     startedAt: '2026-08-02T08:05:00.000Z',
@@ -105,6 +112,8 @@ describe('session workbook', () => {
       'WIP measured at round',
       'WIP rate',
       'Resource round',
+      'Round timer',
+      'R1-5: 10 min; R6-10: 5 min',
     ]) {
       expect(body).toContain(value)
     }

@@ -15,6 +15,7 @@ export type PlayerCommand =
   | { type: 'move'; carId: string; toStage: Stage; toRow: number }
   | { type: 'reposition'; carId: string; toRow: number }
   | { type: 'allocate' }
+  | { type: 'timeout' }
   | { type: 'convert'; spend: ResourcePool; receive: Resource }
   | { type: 'advance' }
   | { type: 'reset' }
@@ -38,9 +39,12 @@ export interface TeamParticipant {
   stateVersion: number
   joinedAt: string
   lastSeenAt: string
+  roundStartedAt: string | null
+  roundTimedOut: boolean
 }
 
 export interface TeamSessionSnapshot {
+  serverNow: string
   game: TeamGameSummary
   participant: TeamParticipant
   roster: TeamParticipant[]
@@ -96,4 +100,7 @@ export interface PlayerCommandResponse {
   state: GameState
   stateVersion: number
   repeated: boolean
+  roundStartedAt: string | null
+  roundTimedOut: boolean
+  serverNow: string
 }

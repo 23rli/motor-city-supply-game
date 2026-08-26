@@ -38,6 +38,8 @@ because nginx owns `:80`. Caddy renews them automatically.
 /etc/motor-city.env       database URL and settings, root-readable only
 /etc/systemd/system/motor-city.service
 /etc/caddy/Caddyfile
+/usr/local/sbin/motor-city-update     root-owned deployment control
+/usr/local/sbin/motor-city-rollback   root-owned rollback control
 ```
 
 ## Getting a shell
@@ -74,23 +76,24 @@ session rather than stopping the script.
 ## Shipping a new version
 
 ```bash
-sudo bash /opt/motor-city/src/deploy/update.sh
+sudo /usr/local/sbin/motor-city-update
 ```
 
-That builds the new version first and only swaps it in once the build succeeds, so a broken
-commit cannot take the site down. If the new version does not answer `/api/health` within
-20 seconds it puts the previous one back and exits non-zero.
+That builds a complete staged runtime, including production dependencies, before stopping the
+service for a same-filesystem swap. It refuses to deploy unless `MIGRATE_ON_START=true` is present.
+Any swap, restart, or database/schema health-check failure restores the complete previous release
+and exits non-zero.
 
 Pass a branch or tag to deploy something other than `main`:
 
 ```bash
-sudo bash /opt/motor-city/src/deploy/update.sh my-branch
+sudo /usr/local/sbin/motor-city-update my-branch
 ```
 
 To go back a version deliberately:
 
 ```bash
-sudo bash /opt/motor-city/src/deploy/rollback.sh
+sudo /usr/local/sbin/motor-city-rollback
 ```
 
 Only one previous version is kept. Running rollback twice does not step further back.
@@ -154,7 +157,7 @@ Schema changes apply themselves when the application starts, because `MIGRATE_ON
 set in `/etc/motor-city.env` and every statement is written to be safe to re-run. There is no
 separate migration step during a deploy.
 
-Sessions older than 12 hours are cleared automatically.
+Games and their player data are deleted automatically 12 hours after session creation.
 
 ## When something is wrong
 

@@ -37,7 +37,7 @@ describe('PostgreSQL schema migration', () => {
       await database.query(
         `INSERT INTO games
           (id, code, status, config, facilitator_id, created_at)
-         VALUES ($1, 'ABC234', 'waiting', '{}'::jsonb, $2, NOW())`,
+         VALUES ($1, 'ABC234', 'waiting', '{"timer":null}'::jsonb, $2, NOW())`,
         [gameId, participantId],
       )
       await database.query(
@@ -56,8 +56,10 @@ describe('PostgreSQL schema migration', () => {
         name: string
         recovery_hash: string | null
         token_expires_at: Date | null
+        timer: unknown
       }>(
-        `SELECT g.code, p.name, p.recovery_hash, p.token_expires_at
+        `SELECT g.code, p.name, p.recovery_hash, p.token_expires_at,
+          g.config -> 'timer' AS timer
          FROM games g JOIN participants p ON p.game_id = g.id`,
       )
       expect(rows.rows).toEqual([
@@ -66,6 +68,7 @@ describe('PostgreSQL schema migration', () => {
           name: 'Legacy Host',
           recovery_hash: null,
           token_expires_at: null,
+          timer: { enabled: false, segments: [] },
         },
       ])
     } finally {

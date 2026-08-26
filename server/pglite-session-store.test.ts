@@ -39,7 +39,8 @@ describe('PostgreSQL session persistence', () => {
     const directory = await mkdtemp(join(tmpdir(), 'motor-city-pglite-'))
     directories.push(directory)
 
-    const firstStore = await PGliteSessionStore.create(new PGlite(directory))
+    const firstDatabase = new PGlite(directory)
+    const firstStore = await PGliteSessionStore.create(firstDatabase)
     const firstApp = buildApp(firstStore)
     apps.push(firstApp)
 
@@ -50,6 +51,12 @@ describe('PostgreSQL session persistence', () => {
         facilitatorName: 'Jordan',
         enabledModels: ['blue', 'green'],
         resourcePlan: 'classic',
+        penaltyRound: 1,
+        endRound: 2,
+        timer: {
+          enabled: true,
+          segments: [{ startRound: 1, endRound: 2, durationSeconds: 60 }],
+        },
       },
     })
     expect(createdResponse.statusCode).toBe(201)
@@ -177,6 +184,19 @@ describe('PostgreSQL session persistence', () => {
     expect([2, 3]).toContain(reportedPlayer.stateVersion)
     expect(reportedWip).toBe(reportedPlayer.stateVersion - 1)
 
+    await firstDatabase.query(
+      `UPDATE participants
+       SET state = jsonb_set(state, '{config,timer}', 'null'::jsonb)
+       WHERE id = $1`,
+      [joined.participant.id],
+    )
+    await firstDatabase.query(
+      `UPDATE idempotency_receipts
+       SET response = jsonb_set(response, '{state,config,timer}', 'null'::jsonb)
+       WHERE participant_id = $1`,
+      [joined.participant.id],
+    )
+
     await firstApp.close()
     apps.splice(apps.indexOf(firstApp), 1)
 
@@ -193,9 +213,13 @@ describe('PostgreSQL session persistence', () => {
     expect(restored.statusCode).toBe(200)
     expect(restored.json()).toMatchObject({
       game: { status: 'active' },
-      participant: { name: 'Riley' },
+      participant: { name: 'Riley', roundTimedOut: false },
       stateVersion: 3,
     })
+    expect(restored.json().participant.roundStartedAt).toBeTruthy()
+    expect(restored.json().state.config.timer).toEqual(
+      created.game.config.timer,
+    )
     expect(restored.json().state.cars).toHaveLength(4)
 
     const removedRejoin = await secondApp.inject({
@@ -223,7 +247,7 @@ describe('PostgreSQL session persistence', () => {
     await secondDatabase.query(
       `UPDATE idempotency_receipts
        SET response = jsonb_set(
-         response,
+         response - 'roundStartedAt' - 'roundTimedOut',
          '{state,config,wipPenalty}',
          $2::jsonb
        )
@@ -234,6 +258,13 @@ describe('PostgreSQL session persistence', () => {
       ],
     )
 
+    await secondDatabase.query(
+      `UPDATE participants
+       SET round_started_at = NOW() - INTERVAL '61 seconds'
+       WHERE id = $1`,
+      [joined.participant.id],
+    )
+
     const retry = await secondApp.inject({
       method: 'POST',
       url: '/api/player/commands',
@@ -242,12 +273,21 @@ describe('PostgreSQL session persistence', () => {
     })
     expect(retry.statusCode).toBe(200)
     expect(retry.json()).toMatchObject({ stateVersion: 1, repeated: true })
+    expect(retry.json()).toMatchObject({
+      roundStartedAt: expect.any(String),
+      roundTimedOut: false,
+    })
     expect(retry.json().state.config.wipPenalty).toEqual({
       blue: 0,
       green: 0,
       red: 0,
       yellow: 0,
     })
+    expect(retry.json().state.config.timer).toEqual(created.game.config.timer)
+    await secondDatabase.query(
+      'UPDATE participants SET round_started_at = NOW() WHERE id = $1',
+      [joined.participant.id],
+    )
 
     await secondDatabase.query(
       `UPDATE idempotency_receipts
@@ -264,6 +304,28 @@ describe('PostgreSQL session persistence', () => {
     })
     expect(expiredRetry.statusCode).toBe(409)
     expect(expiredRetry.json().error.code).toBe('STALE_STATE')
+
+    await secondDatabase.query(
+      `UPDATE participants
+       SET round_started_at = NOW() - INTERVAL '61 seconds'
+       WHERE id = $1`,
+      [joined.participant.id],
+    )
+    const timedOut = await secondApp.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(joined.cookie),
+      payload: {
+        expectedVersion: 3,
+        idempotencyKey: randomUUID(),
+        command: { type: 'timeout' },
+      },
+    })
+    expect(timedOut.statusCode).toBe(200)
+    expect(timedOut.json()).toMatchObject({
+      stateVersion: 4,
+      roundTimedOut: true,
+    })
 
     const rejoinResponse = await secondApp.inject({
       method: 'POST',
@@ -299,6 +361,20 @@ describe('PostgreSQL session persistence', () => {
     })
     expect(revoked.statusCode).toBe(401)
 
+    const observerCommandPayload = {
+      expectedVersion: 0,
+      idempotencyKey: randomUUID(),
+      command: { type: 'allocate' },
+    }
+    const observerCommand = await secondApp.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(observer.cookie),
+      payload: observerCommandPayload,
+    })
+    expect(observerCommand.statusCode).toBe(200)
+    expect(observerCommand.json().stateVersion).toBe(1)
+
     const invalidEnd = await secondApp.inject({
       method: 'POST',
       url: `/api/games/${created.game.id}/end`,
@@ -330,6 +406,18 @@ describe('PostgreSQL session persistence', () => {
     expect([firstEnd.statusCode, secondEnd.statusCode, concurrentPoll.statusCode])
       .toEqual([200, 200, 200])
     expect(firstEnd.json().game.endedAt).toBe(secondEnd.json().game.endedAt)
+
+    const observerRetry = await secondApp.inject({
+      method: 'POST',
+      url: '/api/player/commands',
+      headers: auth(observer.cookie),
+      payload: observerCommandPayload,
+    })
+    expect(observerRetry.statusCode).toBe(200)
+    expect(observerRetry.json()).toMatchObject({
+      stateVersion: 1,
+      repeated: true,
+    })
 
     const observerTimestamp = await secondDatabase.query<{
       last_seen_at: Date | string
@@ -407,6 +495,18 @@ describe('PostgreSQL session persistence', () => {
     expect(new Date(afterFinishedRestore.rows[0].last_seen_at).toISOString()).toBe(
       new Date(beforeFinishedRestore.rows[0].last_seen_at).toISOString(),
     )
+    await secondDatabase.query(
+      `UPDATE games
+       SET created_at = NOW() - INTERVAL '13 hours'
+       WHERE id = $1`,
+      [created.game.id],
+    )
+    await secondStore.cleanupExpiredData()
+    const retained = await secondDatabase.query<{ count: number }>(
+      'SELECT COUNT(*)::integer AS count FROM games WHERE id = $1',
+      [created.game.id],
+    )
+    expect(retained.rows[0].count).toBe(0)
     // Starting PGlite twice takes about 19s, so leave headroom for a loaded machine.
   }, 60_000)
 })

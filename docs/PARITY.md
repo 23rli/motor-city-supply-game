@@ -21,7 +21,9 @@ Manufacturing consumes red requirements, Assembly consumes yellow requirements, 
 
 - A car entering a material station cannot leave during that same round.
 - At round advance, a car becomes ready when its current material requirement is full.
-- Rounds advance only when the player confirms; there is no automatic gameplay countdown or timeout transition.
+- The facilitator may enable a per-player round timer and customize its duration by round range.
+- When enabled, timeout follows v1: remaining materials allocate automatically, the board locks, and the player confirms the next round.
+- When disabled, rounds have no countdown and advance only when the player confirms.
 - Reset restores the exact beginning-of-round board and resource checkpoint.
 
 ## Allocation
@@ -42,7 +44,7 @@ Any combination of exactly four available resources can be exchanged for one red
 
 ## Resources
 
-Classic mode uses the original 10-round demonstration sequence. The original 25-round team sequence is also available. Random mode preserves the original per-round ranges: red 1-10, yellow 1-8, and blue 1-4.
+Classic mode uses the original 10-round demonstration sequence. **Original 25-round Team Sequence** uses all 25 predetermined v1 red/yellow/blue rolls in their original order. Random mode preserves the original per-round ranges: red 1-10, yellow 1-8, and blue 1-4.
 
 ## Scoring and reporting
 
@@ -54,7 +56,7 @@ Classic mode uses the original 10-round demonstration sequence. The original 25-
 
 ## Approved differences from the original
 
-- The original automatic 10/3-minute round timer is intentionally omitted. Team facilitators receive an elapsed session clock that never advances player rounds.
+- The timer is optional instead of mandatory. The v1 timing preset remains available, and custom contiguous timing blocks may be configured before session creation.
 - Players may reposition a car within its current station to change top-lane allocation priority.
 - Enabled models always begin in blue, green, red, yellow order regardless of checkbox interaction.
 - Reset, round advance, and solo finish require confirmation.

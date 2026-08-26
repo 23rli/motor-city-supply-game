@@ -18,6 +18,8 @@ import {
   concealPlayerState,
 } from './player-view'
 import { calculatePlayerReport } from './report'
+import { defaultEndRound, originalTimerConfig } from '../src/game/timer'
+import { roundTimerDurationSeconds } from '../src/game/timer'
 import {
   hashSecret,
   isSessionExpired,
@@ -57,6 +59,8 @@ interface ParticipantRecord {
   stateVersion: number
   joinedAt: string
   lastSeenAt: string
+  roundStartedAt: string | null
+  roundTimedOut: boolean
 }
 
 interface CommandReceipt {
@@ -69,6 +73,9 @@ export interface PlayerCommandResult {
   state: GameState
   stateVersion: number
   repeated: boolean
+  roundStartedAt: string | null
+  roundTimedOut: boolean
+  serverNow: string
 }
 
 export interface IssuedSession {
@@ -136,6 +143,7 @@ export interface SessionStore {
     gameId: string,
     participantId: string,
   ): Promise<{ participantId: string, name: string }>
+  healthCheck?(): Promise<void>
   cleanupExpiredData?(): Promise<void>
   close?(): Promise<void>
 }
@@ -165,15 +173,27 @@ export class InMemorySessionStore implements SessionStore {
   private readonly receipts = new Map<string, CommandReceipt>()
 
   async createSession(input: CreateSessionInput): Promise<IssuedSession> {
-    const reusedConfig = input.reuse ? this.getReusableConfig(input.reuse) : null
-    const seedState = createGame(reusedConfig
-      ? { ...reusedConfig, notes: input.notes }
+    const reusedSetup = input.reuse ? this.getReusableSetup(input.reuse) : null
+    const plannedEndRound = reusedSetup?.endRound
+      ?? input.endRound
+      ?? defaultEndRound(input.resourcePlan)
+    const plannedPenaltyRound = reusedSetup?.penaltyRound
+      ?? input.penaltyRound
+      ?? plannedEndRound
+    const timer = reusedSetup
+      ? reusedSetup.config.timer.segments.length
+        ? reusedSetup.config.timer
+        : originalTimerConfig(plannedEndRound)
+      : input.timer ?? originalTimerConfig(plannedEndRound)
+    const seedState = createGame(reusedSetup
+      ? { ...reusedSetup.config, notes: input.notes, timer }
       : {
           enabledModels: input.enabledModels,
           resourcePlan: input.resourcePlan,
           revenue: input.revenue,
           wipPenalty: input.wipPenalty,
           notes: input.notes,
+          timer,
         })
     const gameId = randomUUID()
     const facilitatorId = randomUUID()
@@ -188,8 +208,8 @@ export class InMemorySessionStore implements SessionStore {
       createdAt: timestamp,
       startedAt: null,
       endedAt: null,
-      penaltyRound: null,
-      endRound: null,
+      penaltyRound: plannedPenaltyRound,
+      endRound: plannedEndRound,
     }
     const facilitator: ParticipantRecord = {
       id: facilitatorId,
@@ -207,6 +227,8 @@ export class InMemorySessionStore implements SessionStore {
       stateVersion: 0,
       joinedAt: timestamp,
       lastSeenAt: timestamp,
+      roundStartedAt: null,
+      roundTimedOut: false,
     }
 
     this.sessions.set(gameId, session)
@@ -255,6 +277,11 @@ export class InMemorySessionStore implements SessionStore {
       stateVersion: 0,
       joinedAt: timestamp,
       lastSeenAt: timestamp,
+      roundStartedAt: session.status === 'active'
+        && roundTimerDurationSeconds(session.config.timer, 1) !== null
+        ? timestamp
+        : null,
+      roundTimedOut: false,
     }
     this.participants.set(participant.id, participant)
     this.participantIdsByTokenHash.set(participant.tokenHash, participant.id)
@@ -366,8 +393,12 @@ export class InMemorySessionStore implements SessionStore {
 
   async getSession(token: string) {
     const { participant, session } = this.authenticate(token)
+    if (session.status === 'active') {
+      this.materializeParticipantTimeout(participant, session)
+    }
     if (session.status !== 'finished') participant.lastSeenAt = now()
     return {
+      serverNow: now(),
       game: this.toSessionSummary(session, participant.role === 'player'),
       participant: this.toParticipantSummary(participant),
       roster: this.getParticipantsForGame(session.id)
@@ -396,7 +427,17 @@ export class InMemorySessionStore implements SessionStore {
     }
     if (session.status === 'waiting') {
       session.status = 'active'
-      session.startedAt = now()
+      const timestamp = now()
+      session.startedAt = timestamp
+      for (const member of this.getParticipantsForGame(session.id)) {
+        if (member.role === 'player' && member.state) {
+          member.roundStartedAt = roundTimerDurationSeconds(
+            session.config.timer,
+            member.state.round + 1,
+          ) === null ? null : timestamp
+          member.roundTimedOut = false
+        }
+      }
     }
     return this.toSessionSummary(session)
   }
@@ -408,6 +449,7 @@ export class InMemorySessionStore implements SessionStore {
       throw new ApiError(409, 'GAME_NOT_STARTED', 'Start the game before ending it.')
     }
     if (session.status === 'active') {
+      this.materializeExpiredTimers(session)
       this.validateReportRounds(session, input)
       session.status = 'finished'
       session.endedAt = now()
@@ -430,10 +472,6 @@ export class InMemorySessionStore implements SessionStore {
     if (participant.role !== 'player' || !participant.state) {
       throw new ApiError(403, 'PLAYER_REQUIRED', 'Only a player can change a factory state.')
     }
-    if (session.status !== 'active') {
-      throw new ApiError(409, 'GAME_NOT_ACTIVE', 'The facilitator must start this game first.')
-    }
-
     const receiptKey = `${participant.id}:${input.idempotencyKey}`
     const fingerprint = JSON.stringify({
       expectedVersion: input.expectedVersion,
@@ -453,6 +491,37 @@ export class InMemorySessionStore implements SessionStore {
         ...response,
         state: concealPlayerState(response.state),
         repeated: true,
+        serverNow: now(),
+      }
+    }
+
+    if (session.status !== 'active') {
+      throw new ApiError(409, 'GAME_NOT_ACTIVE', 'The facilitator must start this game first.')
+    }
+
+    const timeoutMaterialized = this.materializeParticipantTimeout(
+      participant,
+      session,
+    )
+    if (timeoutMaterialized) {
+      return {
+        state: concealPlayerState(participant.state),
+        stateVersion: participant.stateVersion,
+        repeated: false,
+        roundStartedAt: participant.roundStartedAt,
+        roundTimedOut: true,
+        serverNow: now(),
+      }
+    }
+
+    if (input.command.type === 'timeout' && participant.roundTimedOut) {
+      return {
+        state: concealPlayerState(participant.state),
+        stateVersion: participant.stateVersion,
+        repeated: true,
+        roundStartedAt: participant.roundStartedAt,
+        roundTimedOut: true,
+        serverNow: now(),
       }
     }
 
@@ -464,17 +533,55 @@ export class InMemorySessionStore implements SessionStore {
       )
     }
 
+    const timerDuration = roundTimerDurationSeconds(
+      session.config.timer,
+      participant.state.round + 1,
+    )
+    if (input.command.type === 'timeout') {
+      if (timerDuration === null || !participant.roundStartedAt) {
+        throw new ApiError(409, 'ROUND_TIMER_DISABLED', 'This round has no timer.')
+      }
+      if (participant.roundTimedOut) {
+        return {
+          state: concealPlayerState(participant.state),
+          stateVersion: participant.stateVersion,
+          repeated: true,
+          roundStartedAt: participant.roundStartedAt,
+          roundTimedOut: true,
+          serverNow: now(),
+        }
+      }
+      throw new ApiError(409, 'ROUND_TIME_REMAINING', 'This round still has time remaining.')
+    } else if (participant.roundTimedOut && input.command.type !== 'advance') {
+      throw new ApiError(
+        409,
+        'ROUND_TIME_EXPIRED',
+        'Time is up. Advance to the next round.',
+      )
+    }
+
     const application = applyPlayerCommand(participant.state, input.command)
     if (application.error) {
       throw new ApiError(422, application.errorCode!, application.error)
     }
     participant.state = application.state
     participant.stateVersion += 1
-    participant.lastSeenAt = now()
+    const timestamp = now()
+    participant.lastSeenAt = timestamp
+    if (input.command.type === 'advance') {
+      participant.roundTimedOut = false
+      participant.roundStartedAt = roundTimerDurationSeconds(
+        session.config.timer,
+        application.state.round + 1,
+      ) === null ? null : timestamp
+    }
     const response: PlayerCommandResult = {
       state: concealPlayerState(application.state),
       stateVersion: participant.stateVersion,
       repeated: false,
+      roundStartedAt: participant.roundStartedAt,
+      roundTimedOut: participant.roundTimedOut,
+      serverNow: timestamp,
     }
     this.receipts.set(receiptKey, {
       fingerprint,
@@ -487,6 +594,7 @@ export class InMemorySessionStore implements SessionStore {
   async getReport(token: string, gameId: string) {
     const { participant, session } = this.authenticateForGame(token, gameId)
     this.requireReportAccess(participant, session)
+    if (session.status === 'active') this.materializeExpiredTimers(session)
     return this.buildReport(session, participant.role === 'player')
   }
 
@@ -545,9 +653,30 @@ export class InMemorySessionStore implements SessionStore {
   }
 
   async cleanupExpiredData() {
+    const sessionCutoff = Date.now() - SESSION_TTL_MS
+    const expiredGameIds = new Set<string>()
+    for (const [gameId, session] of this.sessions) {
+      if (Date.parse(session.createdAt) >= sessionCutoff) continue
+      expiredGameIds.add(gameId)
+      this.sessions.delete(gameId)
+      this.sessionIdsByCode.delete(session.code)
+    }
+    const expiredParticipantIds = new Set<string>()
+    for (const [participantId, participant] of this.participants) {
+      if (!expiredGameIds.has(participant.gameId)) continue
+      expiredParticipantIds.add(participantId)
+      this.participants.delete(participantId)
+      this.participantIdsByTokenHash.delete(participant.tokenHash)
+    }
     const receiptCutoff = Date.now() - 24 * 60 * 60 * 1_000
     for (const [key, receipt] of this.receipts) {
-      if (receipt.createdAt < receiptCutoff) this.receipts.delete(key)
+      const participantId = key.slice(0, key.indexOf(':'))
+      if (
+        receipt.createdAt < receiptCutoff
+        || expiredParticipantIds.has(participantId)
+      ) {
+        this.receipts.delete(key)
+      }
     }
     this.superseded.prune(SESSION_TTL_MS)
   }
@@ -654,7 +783,40 @@ export class InMemorySessionStore implements SessionStore {
     throw new ApiError(503, 'CODE_EXHAUSTED', 'Could not allocate a game code.')
   }
 
-  private getReusableConfig(reuse: NonNullable<CreateSessionInput['reuse']>) {
+  private materializeParticipantTimeout(
+    participant: ParticipantRecord,
+    session: SessionRecord,
+  ) {
+    if (!participant.state || participant.role !== 'player' || participant.roundTimedOut) {
+      return false
+    }
+    const duration = roundTimerDurationSeconds(
+      session.config.timer,
+      participant.state.round + 1,
+    )
+    if (
+      duration === null
+      || participant.roundStartedAt === null
+      || Date.now() < Date.parse(participant.roundStartedAt) + duration * 1_000
+    ) {
+      return false
+    }
+    participant.state = applyPlayerCommand(
+      participant.state,
+      { type: 'timeout' },
+    ).state
+    participant.stateVersion += 1
+    participant.roundTimedOut = true
+    return true
+  }
+
+  private materializeExpiredTimers(session: SessionRecord) {
+    for (const participant of this.getParticipantsForGame(session.id)) {
+      this.materializeParticipantTimeout(participant, session)
+    }
+  }
+
+  private getReusableSetup(reuse: NonNullable<CreateSessionInput['reuse']>) {
     const gameId = this.sessionIdsByCode.get(reuse.code)
     const session = gameId ? this.sessions.get(gameId) : undefined
     const facilitator = session ? this.participants.get(session.facilitatorId) : undefined
@@ -670,7 +832,11 @@ export class InMemorySessionStore implements SessionStore {
         'The previous facilitator details are invalid.',
       )
     }
-    return clone(session.config)
+    return {
+      config: createGame(clone(session.config)).config,
+      penaltyRound: session.penaltyRound,
+      endRound: session.endRound,
+    }
   }
 
   private toSessionSummary(session: SessionRecord, concealPenalty = false) {
@@ -684,7 +850,7 @@ export class InMemorySessionStore implements SessionStore {
       createdAt: session.createdAt,
       startedAt: session.startedAt,
       endedAt: session.endedAt,
-      penaltyRound: session.penaltyRound,
+      penaltyRound: concealPenalty ? null : session.penaltyRound,
       endRound: session.endRound,
     }
   }
@@ -697,6 +863,8 @@ export class InMemorySessionStore implements SessionStore {
       stateVersion: participant.stateVersion,
       joinedAt: participant.joinedAt,
       lastSeenAt: participant.lastSeenAt,
+      roundStartedAt: participant.roundStartedAt,
+      roundTimedOut: participant.roundTimedOut,
     }
   }
 

@@ -10,7 +10,9 @@ deployment still serves the old game on the same hostname over HTTP.
 | New game | https://motorcity.boeingcenter.com |
 | Old game | http://motorcity.boeingcenter.com |
 
-Running a class: [docs/FACILITATOR.md](docs/FACILITATOR.md).
+Documentation: [docs/README.md](docs/README.md).
+Running a class: [docs/QUICK_START.md](docs/QUICK_START.md) or the
+[full facilitator manual](docs/FACILITATOR.md).
 Deploying and looking after the server: [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Current milestone
@@ -32,6 +34,7 @@ The rebuild is live alongside the original and covers:
 - independent player factories sharing one facilitator schedule
 - create, join, secure rejoin, start, end, roster, and leaderboard flows
 - facilitator elapsed clock plus selected WIP and report cutoff rounds
+- pre-class scoring setup and customizable per-player round timers
 - live ranked leaderboard with ties, movement, podium, throughput, and sortable columns
 - optional student identifiers carried through to the results
 - on-demand per-player station/resource drill-down, peak and average WIP, and throughput

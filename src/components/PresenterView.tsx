@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Trophy, Users, X } from 'lucide-react'
 import type { RankedPlayer } from '../team/leaderboard'
 import type { TeamParticipant, TeamStatus } from '../team/types'
+import { useDialogFocus } from './useDialogFocus'
 
 interface PresenterViewProps {
   code: string
@@ -34,14 +35,7 @@ export function PresenterView({
   onClose,
 }: PresenterViewProps) {
   const [phase, setPhase] = useState<Phase>('revenue')
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const dialogRef = useDialogFocus<HTMLDivElement>(true, onClose)
 
   // Ending the run does not itself give the result away; the facilitator still presses reveal.
   useEffect(() => {
@@ -81,7 +75,7 @@ export function PresenterView({
       : 'Standings'
 
   return (
-    <div className="presenter" role="dialog" aria-modal="true" aria-label="Presenter view">
+    <div className="presenter" role="dialog" aria-modal="true" aria-label="Presenter view" tabIndex={-1} ref={dialogRef}>
       <button className="presenter-close" type="button" onClick={onClose}>
         <X size={20} aria-hidden="true" /> Close
       </button>

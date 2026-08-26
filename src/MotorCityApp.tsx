@@ -1,10 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import {
   ArrowRight,
   ArrowRightLeft,
   BarChart3,
   BookOpen,
   Boxes,
+  Clock3,
   Factory,
   Flag,
   Gauge,
@@ -45,6 +53,12 @@ import {
   type Stage,
 } from './game/types'
 import type { PlayerCommand } from './team/types'
+import { roundTimerDurationSeconds } from './game/timer'
+import {
+  formatRoundCountdown,
+  remainingRoundSeconds,
+  roundTimerAnnouncement,
+} from './team/roundTimer'
 
 const STORAGE_KEY = 'motor-city-demo-game-v1'
 const ENDED_STORAGE_KEY = 'motor-city-demo-game-ended-v1'
@@ -115,6 +129,14 @@ export interface RemoteGameController {
   sessionLabel: string
   onCommand: (command: PlayerCommand) => Promise<string | null>
   onExit: () => void
+  timer: {
+    roundStartedAt: string | null
+    roundTimedOut: boolean
+    serverClock: {
+      serverTimeMs: number
+      monotonicTimeMs: number
+    }
+  }
 }
 
 interface MotorCityAppProps {
@@ -128,6 +150,15 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
   const [selectedCarId, setSelectedCarId] = useState<string | null>(null)
   const [notice, setNotice] = useState<Notice>(OPENING_NOTICE)
   const [busy, setBusy] = useState(false)
+  const [timerNow, setTimerNow] = useState(
+    () => remote?.timer.serverClock.serverTimeMs ?? Date.now(),
+  )
+  const [timerAnnouncement, setTimerAnnouncement] = useState('')
+  const announcementRound = useRef<string | null>(null)
+  const announcedThresholds = useRef(new Set<number>())
+  const previousTimerRemaining = useRef<number | null>(null)
+  const expiryAttempt = useRef<string | null>(null)
+  const expiryRetryTimer = useRef<number | null>(null)
   const game = remote?.game ?? soloGame
   const [activeModal, setActiveModal] = useState<
     'new-run' | 'recipes' | 'converter' | 'statistics' | 'end-run' | 'briefing'
@@ -155,6 +186,12 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
 
+  useEffect(() => () => {
+    if (expiryRetryTimer.current !== null) {
+      window.clearTimeout(expiryRetryTimer.current)
+    }
+  }, [])
+
   const readyToMove = useMemo(
     () => game.cars.filter((car) => getCarStatus(game, car).canMove).length,
     [game],
@@ -168,6 +205,45 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
     (total, value) => total + value,
     0,
   )
+  const timerDuration = remote
+    ? roundTimerDurationSeconds(game.config.timer, game.round + 1)
+    : null
+  const timerRemaining = remainingRoundSeconds(
+    remote?.timer.roundStartedAt ?? null,
+    timerDuration,
+    timerNow,
+    remote?.timer.roundTimedOut ?? false,
+  )
+  const controlsLocked = busy
+    || Boolean(remote?.timer.roundTimedOut)
+    || timerRemaining === 0
+  const visibleModal = remote?.timer.roundTimedOut ? null : activeModal
+
+  useEffect(() => {
+    const startedAt = remote?.timer.roundStartedAt ?? null
+    if (!startedAt || timerRemaining === null || timerRemaining === 0) {
+      previousTimerRemaining.current = timerRemaining
+      return
+    }
+    if (announcementRound.current !== startedAt) {
+      announcementRound.current = startedAt
+      announcedThresholds.current.clear()
+      previousTimerRemaining.current = null
+      setTimerAnnouncement('')
+    }
+    const announcement = roundTimerAnnouncement(
+      previousTimerRemaining.current,
+      timerRemaining,
+    )
+    previousTimerRemaining.current = timerRemaining
+    if (
+      announcement
+      && !announcedThresholds.current.has(announcement.threshold)
+    ) {
+      announcedThresholds.current.add(announcement.threshold)
+      setTimerAnnouncement(announcement.message)
+    }
+  }, [remote?.timer.roundStartedAt, timerRemaining])
 
   const handleSelectCar = (carId: string) => {
     setSelectedCarId((current) => (current === carId ? null : carId))
@@ -193,6 +269,61 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
       setBusy(false)
     }
   }
+
+  const expireRound = useEffectEvent(async () => {
+    if (!remote) return 'No team session is connected.'
+    setBusy(true)
+    try {
+      const error = await remote.onCommand({ type: 'timeout' })
+      if (error) {
+        announce(error, 'error')
+        return error
+      }
+      announce('Time is up. Remaining materials were allocated.', 'success')
+      return null
+    } finally {
+      setBusy(false)
+    }
+  })
+
+  useEffect(() => {
+    if (!remote?.timer.roundStartedAt || timerDuration === null || remote.timer.roundTimedOut) {
+      return
+    }
+    const tick = () => setTimerNow(
+      remote.timer.serverClock.serverTimeMs
+      + performance.now()
+      - remote.timer.serverClock.monotonicTimeMs,
+    )
+    tick()
+    const timer = window.setInterval(tick, 1_000)
+    return () => window.clearInterval(timer)
+  }, [
+    remote?.timer.roundStartedAt,
+    remote?.timer.roundTimedOut,
+    remote?.timer.serverClock.monotonicTimeMs,
+    remote?.timer.serverClock.serverTimeMs,
+    timerDuration,
+  ])
+
+  useEffect(() => {
+    const startedAt = remote?.timer.roundStartedAt
+    if (!remote || !startedAt || timerRemaining !== 0 || remote.timer.roundTimedOut) return
+    const key = `${game.round}:${startedAt}`
+    if (expiryAttempt.current === key) return
+    expiryAttempt.current = key
+    void expireRound().then((error) => {
+      if (!error) return
+      expiryRetryTimer.current = window.setTimeout(() => {
+        if (expiryAttempt.current === key) expiryAttempt.current = null
+        expiryRetryTimer.current = null
+      }, 5_000)
+    })
+  }, [game.round, remote, timerNow, timerRemaining])
+
+  useEffect(() => {
+    if (remote?.timer.roundTimedOut) setActiveModal(null)
+  }, [remote?.timer.roundTimedOut])
 
   const handleMove = async (carId: string, stage: Stage, row: number) => {
     if (remote) {
@@ -383,6 +514,19 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
               {String(game.round + 1).padStart(2, '0')}
             </strong>
           </div>
+          {timerRemaining !== null && (
+            <div
+              className={timerRemaining === 0 ? 'round-timer timer-ended' : 'round-timer'}
+              role="timer"
+              aria-label={`${formatRoundCountdown(timerRemaining)} remaining`}
+            >
+              <span><Clock3 size={13} aria-hidden="true" /> {timerRemaining === 0 ? 'Time up' : 'Time left'}</span>
+              <strong aria-hidden="true">{formatRoundCountdown(timerRemaining)}</strong>
+            </div>
+          )}
+          <p className="sr-only" role="status" aria-live="polite">
+            {timerAnnouncement}
+          </p>
         </div>
 
         <div className="topbar-actions">
@@ -424,7 +568,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
           <button className="button button-secondary" type="button" onClick={() => setActiveModal('converter')}>
             <ArrowRightLeft size={16} aria-hidden="true" /> Converter
           </button>
-          <button className="button button-primary" type="button" onClick={handleAllocate} disabled={busy}>
+          <button className="button button-primary" type="button" onClick={handleAllocate} disabled={controlsLocked}>
             <Play size={16} fill="currentColor" aria-hidden="true" /> Allocate
           </button>
         </div>
@@ -460,7 +604,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         <GameBoard
           game={game}
           selectedCarId={selectedCarId}
-          busy={busy}
+          busy={controlsLocked}
           onSelectCar={handleSelectCar}
           onMove={handleMove}
           onReposition={handleReposition}
@@ -469,25 +613,25 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
       </main>
 
       <footer className="command-dock">
-        <button className="button button-quiet" type="button" onClick={() => setActiveModal('confirm-reset')} disabled={busy}>
+        <button className="button button-quiet" type="button" onClick={() => setActiveModal('confirm-reset')} disabled={controlsLocked}>
           <RotateCcw size={17} aria-hidden="true" /> Reset round
         </button>
         <p className={`dock-notice notice-${notice.tone}`} role="status" aria-live="polite">
           {notice.message}
         </p>
-        <button className="button button-end" type="button" onClick={() => setActiveModal(remote ? 'end-run' : 'confirm-end')}>
+        <button className="button button-end" type="button" onClick={() => setActiveModal(remote ? 'end-run' : 'confirm-end')} disabled={controlsLocked}>
           <Flag size={16} aria-hidden="true" /> {remote ? 'Summary' : 'End run'}
         </button>
-        <button className="button button-next" type="button" onClick={() => setActiveModal('confirm-advance')} disabled={busy}>
+        <button className="button button-next" type="button" onClick={() => setActiveModal('confirm-advance')} disabled={controlsLocked}>
           Next round <ArrowRight size={18} aria-hidden="true" />
         </button>
       </footer>
 
-      <Modal open={activeModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>
+      <Modal open={visibleModal === 'new-run'} eyebrow="Solo mode" title="New production run" onClose={() => setActiveModal(null)}>
         <NewRunPanel config={game.config} onStart={handleNewGame} onCancel={() => setActiveModal(null)} />
       </Modal>
       <Modal
-        open={activeModal === 'briefing'}
+        open={visibleModal === 'briefing'}
         eyebrow={`Shift ${String(game.round + 1).padStart(2, '0')}`}
         title={`Round ${game.round + 1}`}
         onClose={() => setActiveModal(null)}
@@ -498,16 +642,31 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
           onDismiss={() => setActiveModal(null)}
         />
       </Modal>
-      <Modal open={activeModal === 'recipes'} eyebrow="Reference" title="Model recipes" onClose={() => setActiveModal(null)} wide>
+      <Modal
+        open={Boolean(remote?.timer.roundTimedOut)}
+        eyebrow={`Round ${game.round + 1}`}
+        title="Time is up"
+        onClose={() => undefined}
+        dismissible={false}
+      >
+        <div className="timeout-panel">
+          <Clock3 size={34} aria-hidden="true" />
+          <p>Remaining materials were allocated automatically.</p>
+          <button className="button button-primary" type="button" disabled={busy} onClick={() => void handleAdvance()}>
+            Advance round <ArrowRight size={17} aria-hidden="true" />
+          </button>
+        </div>
+      </Modal>
+      <Modal open={visibleModal === 'recipes'} eyebrow="Reference" title="Model recipes" onClose={() => setActiveModal(null)} wide>
         <RecipePanel config={game.config} />
       </Modal>
-      <Modal open={activeModal === 'converter'} eyebrow="Materials" title="Resource converter" onClose={() => setActiveModal(null)}>
+      <Modal open={visibleModal === 'converter'} eyebrow="Materials" title="Resource converter" onClose={() => setActiveModal(null)}>
         <ConverterPanel resources={game.resources} onConvert={handleConvert} onClose={() => setActiveModal(null)} />
       </Modal>
-      <Modal open={activeModal === 'statistics'} eyebrow="Run performance" title="Round statistics" onClose={() => setActiveModal(null)} wide>
+      <Modal open={visibleModal === 'statistics'} eyebrow="Run performance" title="Round statistics" onClose={() => setActiveModal(null)} wide>
         <StatisticsPanel game={game} />
       </Modal>
-      <Modal open={activeModal === 'confirm-reset'} eyebrow="Restore checkpoint" title="Reset this round?" onClose={() => setActiveModal(null)}>
+      <Modal open={visibleModal === 'confirm-reset'} eyebrow="Restore checkpoint" title="Reset this round?" onClose={() => setActiveModal(null)}>
         <ConfirmationPanel
           message="This discards every move, allocation, and conversion made since this round began."
           confirmLabel="Reset round"
@@ -516,7 +675,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
           onConfirm={handleReset}
         />
       </Modal>
-      <Modal open={activeModal === 'confirm-advance'} eyebrow="Commit checkpoint" title={`Advance to round ${game.round + 2}?`} onClose={() => setActiveModal(null)}>
+      <Modal open={visibleModal === 'confirm-advance'} eyebrow="Commit checkpoint" title={`Advance to round ${game.round + 2}?`} onClose={() => setActiveModal(null)}>
         <ConfirmationPanel
           message="This records the current factory state and delivers the next round of materials."
           confirmLabel="Advance round"
@@ -525,7 +684,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
           onConfirm={handleAdvance}
         />
       </Modal>
-      <Modal open={activeModal === 'confirm-end'} eyebrow="Finish solo run" title="End production?" onClose={() => setActiveModal(null)}>
+      <Modal open={visibleModal === 'confirm-end'} eyebrow="Finish solo run" title="End production?" onClose={() => setActiveModal(null)}>
         <ConfirmationPanel
           message="This locks the run and reveals the final score. You can download the results or start again from the summary."
           confirmLabel="Finish run"
@@ -535,7 +694,7 @@ function MotorCityApp({ remote, onExit }: MotorCityAppProps) {
         />
       </Modal>
       <Modal
-        open={Boolean(remote) && activeModal === 'end-run'}
+        open={Boolean(remote) && visibleModal === 'end-run'}
         eyebrow={`Through round ${game.round + 1}`}
         title="Run progress"
         onClose={() => setActiveModal(null)}

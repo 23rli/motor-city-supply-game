@@ -22,10 +22,13 @@ import { Modal } from '../components/Modal'
 import { PlayerRoundHistory } from '../components/PlayerRoundHistory'
 import { PresenterView } from '../components/PresenterView'
 import { CAR_MODELS } from '../game/types'
+import { describeRoundTimer } from '../game/timer'
 import { ApiClientError, teamApi } from './api'
 import { formatElapsedTime } from './elapsed'
 import { podium, rankPlayers, rankSnapshot, sortLeaderboard, type SortDirection, type SortKey } from './leaderboard'
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
+import { commandPreemptedByTimeout } from './roundTimer'
+import { shouldApplySessionSnapshot } from './sessionSnapshot'
 import type {
   PlayerCommand,
   TeamReport,
@@ -70,10 +73,18 @@ export function TeamSession({
   const [ending, setEnding] = useState(false)
   const [presenting, setPresenting] = useState(false)
   const [clockTime, setClockTime] = useState(Date.now())
+  const [serverClock, setServerClock] = useState(() => ({
+    serverTimeMs: initialSnapshot?.serverNow
+      ? Date.parse(initialSnapshot.serverNow)
+      : Date.now(),
+    monotonicTimeMs: performance.now(),
+  }))
   const [historyName, setHistoryName] = useState('')
   const [historyPlayer, setHistoryPlayer] = useState<TeamExportPlayer | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const historyRequest = useRef(0)
+  const loadRequest = useRef(0)
+  const initializedPlanFor = useRef<string | null>(null)
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const finished = snapshot?.game.status === 'finished'
@@ -146,28 +157,29 @@ export function TeamSession({
     return () => window.clearInterval(timer)
   }, [snapshot?.game.status])
 
-  const snapshotFingerprint = (value: TeamSessionSnapshot) => JSON.stringify({
-    game: value.game,
-    participant: {
-      id: value.participant.id,
-      role: value.participant.role,
-      stateVersion: value.participant.stateVersion,
-    },
-    roster: value.roster.map((member) => ({
-      id: member.id,
-      name: member.name,
-      role: member.role,
-      stateVersion: member.stateVersion,
-    })),
-    state: value.state,
-    stateVersion: value.stateVersion,
-  })
+  useEffect(() => {
+    if (!snapshot || initializedPlanFor.current === snapshot.game.id) return
+    const plannedEnd = snapshot.game.endRound ?? 1
+    setEndRound(plannedEnd)
+    setPenaltyRound(snapshot.game.penaltyRound ?? plannedEnd)
+    initializedPlanFor.current = snapshot.game.id
+  }, [snapshot])
+
+  const synchronizeServerClock = useCallback((serverNow: string) => {
+    setServerClock({
+      serverTimeMs: Date.parse(serverNow),
+      monotonicTimeMs: performance.now(),
+    })
+  }, [])
 
   const load = useCallback(async () => {
+    const requestId = ++loadRequest.current
     try {
       const nextSnapshot = await teamApi.getSession()
+      if (requestId !== loadRequest.current) return true
+      synchronizeServerClock(nextSnapshot.serverNow)
       setSnapshot((current) =>
-        current && snapshotFingerprint(current) === snapshotFingerprint(nextSnapshot)
+        current && !shouldApplySessionSnapshot(current, nextSnapshot)
           ? current
           : nextSnapshot,
       )
@@ -175,6 +187,7 @@ export function TeamSession({
       setConnectionState('synced')
       if (nextSnapshot.participant.role === 'facilitator' || nextSnapshot.game.status === 'finished') {
         const nextReport = await teamApi.getReport(nextSnapshot.game.id)
+        if (requestId !== loadRequest.current) return true
         setReport((current) =>
           current && JSON.stringify(current) === JSON.stringify(nextReport)
             ? current
@@ -182,6 +195,7 @@ export function TeamSession({
         )
       }
     } catch (caught) {
+      if (requestId !== loadRequest.current) return true
       if (caught instanceof ApiClientError && caught.status === 401) {
         onInvalid(caught.code.startsWith('SESSION_') ? caught.message : undefined)
         return false
@@ -191,7 +205,7 @@ export function TeamSession({
       return false
     }
     return true
-  }, [onInvalid])
+  }, [onInvalid, synchronizeServerClock])
 
   useEffect(() => {
     let active = true
@@ -226,6 +240,7 @@ export function TeamSession({
         snapshot.stateVersion,
         command,
       )
+      synchronizeServerClock(result.serverNow)
       setSnapshot((current) => current ? {
         ...current,
         state: result.state,
@@ -233,8 +248,13 @@ export function TeamSession({
         participant: {
           ...current.participant,
           stateVersion: result.stateVersion,
+          roundStartedAt: result.roundStartedAt,
+          roundTimedOut: result.roundTimedOut,
         },
       } : current)
+      if (commandPreemptedByTimeout(command, result)) {
+        return 'Time ran out before that action was applied.'
+      }
       return null
     } catch (caught) {
       if (caught instanceof ApiClientError && caught.code === 'STALE_STATE') {
@@ -267,6 +287,11 @@ export function TeamSession({
             sessionLabel: `Team ${snapshot.game.code} / ${connectionState}`,
             onCommand: sendCommand,
             onExit,
+            timer: {
+              roundStartedAt: snapshot.participant.roundStartedAt,
+              roundTimedOut: snapshot.participant.roundTimedOut,
+              serverClock,
+            },
           }}
         />
       </>
@@ -473,6 +498,9 @@ export function TeamSession({
                 <dl className="session-details">
                   <div><dt>Car models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div>
                   <div><dt>Players</dt><dd>{snapshot.roster.filter((member) => member.role === 'player').length}</dd></div>
+                  <div><dt>Final round</dt><dd>{snapshot.game.endRound ?? '—'}</dd></div>
+                  <div><dt>WIP round</dt><dd>{snapshot.game.penaltyRound ?? 'Hidden'}</dd></div>
+                  <div className="session-timer-plan"><dt>Round timer</dt><dd>{describeRoundTimer(snapshot.game.config.timer)}</dd></div>
                   <div><dt>Elapsed</dt><dd className="elapsed-clock">{formatElapsedTime(snapshot.game.startedAt, snapshot.game.endedAt, clockTime)}</dd></div>
                 </dl>
                 {snapshot.game.status === 'waiting' && <button className="button button-primary control-action" type="button" disabled={busy} onClick={() => void runLifecycle('start')}><Play size={17} fill="currentColor" /> Start production</button>}

@@ -13,22 +13,30 @@
 
 set -euo pipefail
 
-APP_USER="motorcity"
-APP_DIR="/opt/motor-city"
+APP_USER="${MOTOR_CITY_APP_USER:-motorcity}"
+APP_DIR="${MOTOR_CITY_APP_DIR:-/opt/motor-city}"
 SRC_DIR="$APP_DIR/src"
 NODE_BIN="$APP_DIR/node/bin"
 BACKUP_DIR="$APP_DIR/previous"
+STAGE_DIR="$APP_DIR/next"
 DEPLOY_KEY="$APP_DIR/.ssh/deploy_key"
-REPO_SSH="git@github.com:23rli/motor-city-supply-game.git"
-APP_PORT="4000"
+ENV_FILE="${MOTOR_CITY_ENV_FILE:-/etc/motor-city.env}"
+REPO_SSH="${MOTOR_CITY_REPO_SSH:-git@github.com:23rli/motor-city-supply-game.git}"
+APP_PORT="${MOTOR_CITY_APP_PORT:-4000}"
 REF="${1:-}"
 
 log() { printf '\n== %s\n' "$1"; }
 die() { echo "$1" >&2; exit 1; }
 
-[[ $EUID -eq 0 ]] || die "Run with sudo."
+if [[ $EUID -ne 0 && -z ${MOTOR_CITY_APP_DIR:-} ]]; then
+  die "Run with sudo."
+fi
 [[ -x $NODE_BIN/node ]] || die "No private Node runtime at $NODE_BIN. Run install.sh first."
-[[ -f /etc/motor-city.env ]] || die "No /etc/motor-city.env. Run install.sh first."
+[[ -f $ENV_FILE ]] || die "No $ENV_FILE. Run install.sh first."
+grep -Eq '^MIGRATE_ON_START=true[[:space:]]*$' "$ENV_FILE" \
+  || die "MIGRATE_ON_START=true is required in $ENV_FILE. Nothing changed."
+grep -Eq '^NODE_ENV=production[[:space:]]*$' "$ENV_FILE" \
+  || die "NODE_ENV=production is required in $ENV_FILE. Nothing changed."
 command -v git >/dev/null 2>&1 || die "git is not installed. Install it, then re-run."
 
 FREE_MB="$(df -Pm "$APP_DIR" | awk 'NR==2 {print $4}')"
@@ -52,6 +60,12 @@ as_app() {
     envs+=("GIT_SSH_COMMAND=$GIT_SSH_COMMAND")
   fi
   sudo -u "$APP_USER" env "${envs[@]}" "$@"
+}
+
+release_healthy() {
+  curl -fsS "http://127.0.0.1:$APP_PORT/api/health" >/dev/null 2>&1 \
+    && curl -fsS "http://127.0.0.1:$APP_PORT/" 2>/dev/null \
+      | grep -q 'id="root"'
 }
 
 log "Fetching source"
@@ -78,41 +92,78 @@ as_app "$NODE_BIN/npm" --prefix "$SRC_DIR" run build
 [[ -f $SRC_DIR/dist-server/index.js ]] || die "Build produced no dist-server/index.js."
 [[ -f $SRC_DIR/dist/index.html ]] || die "Build produced no dist/index.html."
 
-log "Keeping the current version so it can be put back"
-rm -rf "$BACKUP_DIR"
-mkdir -p "$BACKUP_DIR"
-for item in dist dist-server package.json package-lock.json node_modules; do
-  [[ -e $APP_DIR/$item ]] && cp -a "$APP_DIR/$item" "$BACKUP_DIR/"
-done
-
 restore() {
+  set +e
   echo "  putting the previous version back" >&2
+  systemctl stop motor-city
   for item in dist dist-server package.json package-lock.json node_modules; do
     if [[ -e $BACKUP_DIR/$item ]]; then
       rm -rf "${APP_DIR:?}/$item"
       cp -a "$BACKUP_DIR/$item" "$APP_DIR/"
     fi
   done
-  systemctl restart motor-city || true
+  chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
+    "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+  systemctl start motor-city
+  for _ in $(seq 1 20); do
+    if release_healthy; then
+      echo "  previous version passed its health check" >&2
+      return 0
+    fi
+    sleep 1
+  done
+  echo "The previous version was restored but did not pass /api/health." >&2
+  return 1
 }
 
-log "Swapping in the new version"
-for item in dist dist-server package.json package-lock.json; do
-  rm -rf "${APP_DIR:?}/$item"
-  cp -a "$SRC_DIR/$item" "$APP_DIR/"
-done
-chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
-  "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+ROLLBACK_READY=0
+on_error() {
+  local status=$?
+  trap - ERR INT TERM
+  if (( ROLLBACK_READY == 1 )); then
+    echo "Deployment failed after the previous version was secured." >&2
+    restore
+  fi
+  rm -rf "$STAGE_DIR"
+  exit "$status"
+}
+trap on_error ERR INT TERM
 
-# Runtime dependencies only. Schema changes apply themselves on start.
-as_app "$NODE_BIN/npm" --prefix "$APP_DIR" ci --omit=dev --no-audit --no-fund
+log "Staging the complete runtime before touching the live version"
+rm -rf "$STAGE_DIR"
+mkdir -p "$STAGE_DIR"
+for item in dist dist-server package.json package-lock.json; do
+  cp -a "$SRC_DIR/$item" "$STAGE_DIR/"
+done
+chown -R "$APP_USER":"$APP_USER" "$STAGE_DIR"
+as_app "$NODE_BIN/npm" --prefix "$STAGE_DIR" ci --omit=dev --no-audit --no-fund
+
+for item in dist dist-server package.json package-lock.json node_modules; do
+  [[ -e $APP_DIR/$item ]] || die "The current release is incomplete: missing $APP_DIR/$item. Nothing changed."
+done
+
+log "Securing the current release for rollback"
+rm -rf "$BACKUP_DIR"
+mkdir -p "$BACKUP_DIR"
+ROLLBACK_READY=1
+
+log "Swapping releases"
+systemctl stop motor-city
+for item in dist dist-server package.json package-lock.json node_modules; do
+  mv "$APP_DIR/$item" "$BACKUP_DIR/"
+  mv "$STAGE_DIR/$item" "$APP_DIR/"
+done
+rm -rf "$STAGE_DIR"
+chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
+  "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
 
 log "Restarting"
-systemctl restart motor-city
+systemctl enable motor-city
+systemctl start motor-city
 
 HEALTHY=0
 for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:$APP_PORT/api/health" >/dev/null 2>&1; then
+  if release_healthy; then
     HEALTHY=1
     break
   fi
@@ -123,9 +174,11 @@ if (( HEALTHY == 0 )); then
   echo "" >&2
   echo "The new version did not answer /api/health within 20s." >&2
   systemctl --no-pager --lines=30 status motor-city >&2 || true
-  restore
-  die "Rolled back to the previous version. Nothing shipped."
+  false
 fi
+
+ROLLBACK_READY=0
+trap - ERR INT TERM
 
 # Caddy is deliberately left alone: its configuration has not changed and restarting it
 # would drop TLS for a moment for no reason.
@@ -140,5 +193,5 @@ Shipped $REF at $COMMIT.
   http://${SITE:-your-hostname}   -> the current game, still untouched
 
 Logs:      sudo journalctl -u motor-city -f
-Roll back: sudo bash $SRC_DIR/deploy/rollback.sh
+Roll back: sudo /usr/local/sbin/motor-city-rollback
 EOF

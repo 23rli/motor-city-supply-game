@@ -34,6 +34,8 @@ export function applyPlayerCommand(
     }
     case 'allocate':
       return { state: allocateResources(state) }
+    case 'timeout':
+      return { state: allocateResources(state) }
     case 'convert': {
       const result = convertResources(state, command.spend, command.receive)
       return result.error

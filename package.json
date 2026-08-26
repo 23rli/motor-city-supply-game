@@ -18,6 +18,8 @@
     "typecheck:api": "tsc -p tsconfig.server.json --noEmit",
     "lint": "oxlint",
     "test": "vitest run",
+    "docs:check": "node scripts/check-doc-links.mjs",
+    "docs:pdf": "node scripts/build-facilitator-guide.mjs",
     "preview": "vite preview",
     "start:api": "node dist-server/index.js"
   },

@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS participants (
   identifier varchar(120),
   joined_at timestamptz NOT NULL,
   last_seen_at timestamptz NOT NULL,
+  round_started_at timestamptz,
+  round_timed_out boolean NOT NULL DEFAULT false,
   UNIQUE (game_id, normalized_name)
 );
 
@@ -54,6 +56,8 @@ BEGIN
 END
 $$;
 ALTER TABLE participants ADD COLUMN IF NOT EXISTS identifier varchar(120);
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS round_started_at timestamptz;
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS round_timed_out boolean NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS participants_game_id_idx
   ON participants(game_id);
@@ -82,4 +86,39 @@ CREATE TABLE IF NOT EXISTS round_snapshots (
 
 CREATE INDEX IF NOT EXISTS round_snapshots_game_round_idx
   ON round_snapshots(game_id, round_number);
+
+UPDATE games
+SET config = jsonb_set(
+  config,
+  '{timer}',
+  '{"enabled":false,"segments":[]}'::jsonb,
+  true
+)
+WHERE config -> 'timer' IS NULL
+  OR jsonb_typeof(config -> 'timer') = 'null';
+
+UPDATE participants p
+SET state = jsonb_set(state, '{config,timer}', g.config -> 'timer', true)
+FROM games g
+WHERE p.game_id = g.id
+  AND p.state IS NOT NULL
+  AND (
+    p.state #> '{config,timer}' IS NULL
+    OR jsonb_typeof(p.state #> '{config,timer}') = 'null'
+  );
+
+UPDATE idempotency_receipts r
+SET response = jsonb_set(
+  r.response,
+  '{state,config,timer}',
+  g.config -> 'timer',
+  true
+)
+FROM participants p
+JOIN games g ON g.id = p.game_id
+WHERE r.participant_id = p.id
+  AND (
+    r.response #> '{state,config,timer}' IS NULL
+    OR jsonb_typeof(r.response #> '{state,config,timer}') = 'null'
+  );
 `

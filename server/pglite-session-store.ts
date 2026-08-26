@@ -3,6 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import {
   createGame,
   getRoundSummary,
+  normalizeGameState,
 } from '../src/game/engine'
 import type { GameConfig, GameState } from '../src/game/types'
 import type {
@@ -25,6 +26,8 @@ import {
   concealPlayerState,
 } from './player-view'
 import { calculatePlayerReport } from './report'
+import { defaultEndRound, originalTimerConfig } from '../src/game/timer'
+import { roundTimerDurationSeconds } from '../src/game/timer'
 import {
   hashSecret,
   issueSessionSecrets,
@@ -69,6 +72,8 @@ interface ParticipantRow {
   state_version: number
   joined_at: Date | string
   last_seen_at: Date | string
+  round_started_at: Date | string | null
+  round_timed_out: boolean
 }
 
 interface AuthRow extends ParticipantRow {
@@ -122,11 +127,25 @@ export class SqlSessionStore implements SessionStore {
     await this.client.close()
   }
 
+  async healthCheck() {
+    await this.client.query(
+      'SELECT round_started_at, round_timed_out FROM participants LIMIT 0',
+    )
+  }
+
   async createSession(input: CreateSessionInput) {
-    let reusedConfig: GameConfig | null = null
+    let reusedSetup: {
+      config: GameConfig
+      penaltyRound: number | null
+      endRound: number | null
+    } | null = null
     if (input.reuse) {
-      const reusable = await this.client.query<{ config: GameConfig | string }>(
-        `SELECT g.config
+      const reusable = await this.client.query<{
+        config: GameConfig | string
+        penalty_round: number | null
+        end_round: number | null
+      }>(
+        `SELECT g.config, g.penalty_round, g.end_round
          FROM games g
          JOIN participants p ON p.id = g.facilitator_id
          WHERE g.code = $1
@@ -141,16 +160,32 @@ export class SqlSessionStore implements SessionStore {
           'The previous facilitator details are invalid.',
         )
       }
-      reusedConfig = createGame(asJson<GameConfig>(reusable.rows[0].config)).config
+      reusedSetup = {
+        config: createGame(asJson<GameConfig>(reusable.rows[0].config)).config,
+        penaltyRound: reusable.rows[0].penalty_round,
+        endRound: reusable.rows[0].end_round,
+      }
     }
-    const seedState = createGame(reusedConfig
-      ? { ...reusedConfig, notes: input.notes }
+    const plannedEndRound = reusedSetup?.endRound
+      ?? input.endRound
+      ?? defaultEndRound(input.resourcePlan)
+    const plannedPenaltyRound = reusedSetup?.penaltyRound
+      ?? input.penaltyRound
+      ?? plannedEndRound
+    const timer = reusedSetup
+      ? reusedSetup.config.timer.segments.length
+        ? reusedSetup.config.timer
+        : originalTimerConfig(plannedEndRound)
+      : input.timer ?? originalTimerConfig(plannedEndRound)
+    const seedState = createGame(reusedSetup
+      ? { ...reusedSetup.config, notes: input.notes, timer }
       : {
           enabledModels: input.enabledModels,
           resourcePlan: input.resourcePlan,
           revenue: input.revenue,
           wipPenalty: input.wipPenalty,
           notes: input.notes,
+          timer,
         })
     const gameId = randomUUID()
     const facilitatorId = randomUUID()
@@ -165,8 +200,8 @@ export class SqlSessionStore implements SessionStore {
       created_at: timestamp,
       started_at: null,
       ended_at: null,
-      penalty_round: null,
-      end_round: null,
+      penalty_round: plannedPenaltyRound,
+      end_round: plannedEndRound,
     }
     const facilitator: ParticipantRow = {
       id: facilitatorId,
@@ -184,6 +219,8 @@ export class SqlSessionStore implements SessionStore {
       state_version: 0,
       joined_at: timestamp,
       last_seen_at: timestamp,
+      round_started_at: null,
+      round_timed_out: false,
     }
 
     try {
@@ -236,6 +273,7 @@ export class SqlSessionStore implements SessionStore {
 
       const secrets = issueSessionSecrets()
       const timestamp = now()
+      const state = createGame(asJson<GameConfig>(game.config))
       const participant: ParticipantRow = {
         id: randomUUID(),
         game_id: game.id,
@@ -248,10 +286,15 @@ export class SqlSessionStore implements SessionStore {
         token_expires_at: secrets.tokenExpiresAt,
         revoked_at: null,
         removed_at: null,
-        state: createGame(asJson<GameConfig>(game.config)),
+        state,
         state_version: 0,
         joined_at: timestamp,
         last_seen_at: timestamp,
+        round_started_at: game.status === 'active'
+          && roundTimerDurationSeconds(state.config.timer, 1) !== null
+          ? timestamp
+          : null,
+        round_timed_out: false,
       }
 
       try {
@@ -365,6 +408,9 @@ export class SqlSessionStore implements SessionStore {
   async getSession(token: string) {
     return this.client.transaction(async (tx) => {
       const { participant, game } = await this.authenticate(tx, token, 'command')
+      if (game.status === 'active') {
+        await this.materializeParticipantTimeout(tx, participant, game)
+      }
       if (game.status !== 'finished') {
         const timestamp = now()
         const heartbeat = await tx.query(
@@ -387,6 +433,7 @@ export class SqlSessionStore implements SessionStore {
         [game.id],
       )
       return {
+        serverNow: now(),
         game: this.toSessionSummary(game, participant.role === 'player'),
         participant: this.toParticipantSummary(participant),
         roster: roster.rows.map((member) => this.toParticipantSummary(member)),
@@ -425,6 +472,16 @@ export class SqlSessionStore implements SessionStore {
           'UPDATE games SET status = $1, started_at = $2 WHERE id = $3',
           [game.status, game.started_at, game.id],
         )
+        const config = createGame(asJson<GameConfig>(game.config)).config
+        const roundStartedAt = roundTimerDurationSeconds(config.timer, 1) === null
+          ? null
+          : game.started_at
+        await tx.query(
+          `UPDATE participants
+           SET round_started_at = $1, round_timed_out = FALSE
+           WHERE game_id = $2 AND role = 'player'`,
+          [roundStartedAt, game.id],
+        )
       }
       return this.toSessionSummary(game)
     })
@@ -439,6 +496,7 @@ export class SqlSessionStore implements SessionStore {
         throw new ApiError(409, 'GAME_NOT_STARTED', 'Start the game before ending it.')
       }
       if (game.status === 'active') {
+        await this.materializeExpiredTimers(tx, game)
         await this.validateReportRounds(tx, game.id, input)
         game.status = 'finished'
         game.ended_at = now()
@@ -470,12 +528,7 @@ export class SqlSessionStore implements SessionStore {
       if (participant.role !== 'player' || !participant.state) {
         throw new ApiError(403, 'PLAYER_REQUIRED', 'Only a player can change a factory state.')
       }
-      if (game.status !== 'active') {
-        throw new ApiError(409, 'GAME_NOT_ACTIVE', 'The facilitator must start this game first.')
-      }
-
       await this.cleanupExpiredData(tx)
-
       const fingerprint = JSON.stringify({
         expectedVersion: input.expectedVersion,
         command: input.command,
@@ -499,6 +552,42 @@ export class SqlSessionStore implements SessionStore {
           ...response,
           state: concealPlayerState(response.state),
           repeated: true,
+          roundStartedAt: response.roundStartedAt
+            ?? asIso(participant.round_started_at),
+          roundTimedOut: response.roundTimedOut
+            ?? participant.round_timed_out,
+          serverNow: now(),
+        }
+      }
+
+      if (game.status !== 'active') {
+        throw new ApiError(409, 'GAME_NOT_ACTIVE', 'The facilitator must start this game first.')
+      }
+
+      const timeoutMaterialized = await this.materializeParticipantTimeout(
+        tx,
+        participant,
+        game,
+      )
+      if (timeoutMaterialized) {
+        return {
+          state: concealPlayerState(asJson<GameState>(participant.state!)),
+          stateVersion: participant.state_version,
+          repeated: false,
+          roundStartedAt: asIso(participant.round_started_at),
+          roundTimedOut: true,
+          serverNow: now(),
+        }
+      }
+
+      if (input.command.type === 'timeout' && participant.round_timed_out) {
+        return {
+          state: concealPlayerState(asJson<GameState>(participant.state!)),
+          stateVersion: participant.state_version,
+          repeated: true,
+          roundStartedAt: asIso(participant.round_started_at),
+          roundTimedOut: true,
+          serverNow: now(),
         }
       }
 
@@ -510,8 +599,27 @@ export class SqlSessionStore implements SessionStore {
         )
       }
 
+      const currentState = normalizeGameState(asJson<GameState>(participant.state))
+      const config = createGame(asJson<GameConfig>(game.config)).config
+      const timerDuration = roundTimerDurationSeconds(
+        config.timer,
+        currentState.round + 1,
+      )
+      if (input.command.type === 'timeout') {
+        if (timerDuration === null || !participant.round_started_at) {
+          throw new ApiError(409, 'ROUND_TIMER_DISABLED', 'This round has no timer.')
+        }
+        throw new ApiError(409, 'ROUND_TIME_REMAINING', 'This round still has time remaining.')
+      } else if (participant.round_timed_out && input.command.type !== 'advance') {
+        throw new ApiError(
+          409,
+          'ROUND_TIME_EXPIRED',
+          'Time is up. Advance to the next round.',
+        )
+      }
+
       const application = applyPlayerCommand(
-        asJson<GameState>(participant.state),
+        normalizeGameState(asJson<GameState>(participant.state)),
         input.command,
       )
       if (application.error) {
@@ -519,17 +627,37 @@ export class SqlSessionStore implements SessionStore {
       }
       const stateVersion = participant.state_version + 1
       const timestamp = now()
+      let roundStartedAt = asIso(participant.round_started_at)
+      let roundTimedOut = participant.round_timed_out
+      if (input.command.type === 'advance') {
+        roundTimedOut = false
+        roundStartedAt = roundTimerDurationSeconds(
+          config.timer,
+          application.state.round + 1,
+        ) === null ? null : timestamp
+      }
       const response: PlayerCommandResult = {
         state: concealPlayerState(application.state),
         stateVersion,
         repeated: false,
+        roundStartedAt,
+        roundTimedOut,
+        serverNow: timestamp,
       }
 
       await tx.query(
         `UPDATE participants
-         SET state = $1::jsonb, state_version = $2, last_seen_at = $3
-         WHERE id = $4`,
-        [JSON.stringify(application.state), stateVersion, timestamp, participant.id],
+         SET state = $1::jsonb, state_version = $2, last_seen_at = $3,
+             round_started_at = $4, round_timed_out = $5
+         WHERE id = $6`,
+        [
+          JSON.stringify(application.state),
+          stateVersion,
+          timestamp,
+          roundStartedAt,
+          roundTimedOut,
+          participant.id,
+        ],
       )
       await tx.query(
         `INSERT INTO idempotency_receipts
@@ -570,9 +698,10 @@ export class SqlSessionStore implements SessionStore {
 
   async getReport(token: string, gameId: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
+      const { participant, game } = await this.authenticate(tx, token, 'command')
       this.requireGame(participant, game, gameId)
       this.requireReportAccess(participant, game)
+      if (game.status === 'active') await this.materializeExpiredTimers(tx, game)
       return this.buildReport(tx, game, participant.role === 'player')
     })
   }
@@ -580,9 +709,10 @@ export class SqlSessionStore implements SessionStore {
   /** Fetched only when a facilitator downloads, so the round history stays out of the poll. */
   async getExport(token: string, gameId: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
+      const { participant, game } = await this.authenticate(tx, token, 'command')
       this.requireGame(participant, game, gameId)
       this.requireFacilitator(participant)
+      if (game.status === 'active') await this.materializeExpiredTimers(tx, game)
 
       const report = await this.buildReport(tx, game)
       const rows = await tx.query<ParticipantRow>(
@@ -594,7 +724,7 @@ export class SqlSessionStore implements SessionStore {
         rows.rows
           .filter((row) => row.state !== null)
           .map((row) => {
-            const state = asJson<GameState>(row.state as string | GameState)
+            const state = normalizeGameState(asJson<GameState>(row.state as string | GameState))
             return [row.id, [...state.history, getRoundSummary(state)]] as const
           }),
       )
@@ -610,9 +740,10 @@ export class SqlSessionStore implements SessionStore {
 
   async getPlayerHistory(token: string, gameId: string, participantId: string) {
     return this.client.transaction(async (tx) => {
-      const { participant, game } = await this.authenticate(tx, token)
+      const { participant, game } = await this.authenticate(tx, token, 'command')
       this.requireGame(participant, game, gameId)
       this.requireFacilitator(participant)
+      if (game.status === 'active') await this.materializeExpiredTimers(tx, game)
       const result = await tx.query<ParticipantRow>(
         `SELECT * FROM participants
          WHERE id = $1 AND game_id = $2 AND role = 'player'
@@ -628,7 +759,7 @@ export class SqlSessionStore implements SessionStore {
           'That player is not in this session.',
         )
       }
-      const state = asJson<GameState>(target.state)
+      const state = normalizeGameState(asJson<GameState>(target.state))
       const metrics = calculatePlayerReport(state, {
         penaltyRound: game.penalty_round,
         endRound: game.end_round,
@@ -646,6 +777,10 @@ export class SqlSessionStore implements SessionStore {
   }
 
   async cleanupExpiredData(client: SqlExecutor = this.client) {
+    await client.query(
+      'DELETE FROM games WHERE created_at < $1',
+      [new Date(Date.now() - SESSION_TTL_MS).toISOString()],
+    )
     await client.query(
       `DELETE FROM idempotency_receipts
        WHERE created_at < NOW() - INTERVAL '24 hours'`,
@@ -743,8 +878,9 @@ export class SqlSessionStore implements SessionStore {
     await client.query(
       `INSERT INTO participants
         (id, game_id, name, normalized_name, identifier, role, token_hash, recovery_hash,
-         token_expires_at, revoked_at, removed_at, state, state_version, joined_at, last_seen_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15)`,
+         token_expires_at, revoked_at, removed_at, state, state_version, joined_at, last_seen_at,
+         round_started_at, round_timed_out)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17)`,
       [
         participant.id,
         participant.game_id,
@@ -761,6 +897,8 @@ export class SqlSessionStore implements SessionStore {
         participant.state_version,
         participant.joined_at,
         participant.last_seen_at,
+        participant.round_started_at,
+        participant.round_timed_out,
       ],
     )
   }
@@ -848,7 +986,7 @@ export class SqlSessionStore implements SessionStore {
     const players = result.rows
       .filter((participant) => participant.state)
       .map((participant) => {
-        const state = asJson<GameState>(participant.state!)
+        const state = normalizeGameState(asJson<GameState>(participant.state!))
         const metrics = calculatePlayerReport(state, {
           penaltyRound: game.penalty_round,
           endRound: game.end_round,
@@ -929,6 +1067,51 @@ export class SqlSessionStore implements SessionStore {
     }
   }
 
+  private async materializeParticipantTimeout(
+    client: SqlExecutor,
+    participant: ParticipantRow,
+    game: GameRow,
+  ) {
+    if (!participant.state || participant.role !== 'player' || participant.round_timed_out) {
+      return false
+    }
+    const state = normalizeGameState(asJson<GameState>(participant.state))
+    const config = createGame(asJson<GameConfig>(game.config)).config
+    const duration = roundTimerDurationSeconds(config.timer, state.round + 1)
+    if (
+      duration === null
+      || participant.round_started_at === null
+      || Date.now() < Date.parse(asIso(participant.round_started_at)!) + duration * 1_000
+    ) {
+      return false
+    }
+    const timedOutState = applyPlayerCommand(state, { type: 'timeout' }).state
+    const stateVersion = participant.state_version + 1
+    await client.query(
+      `UPDATE participants
+       SET state = $1::jsonb, state_version = $2, round_timed_out = TRUE
+       WHERE id = $3`,
+      [JSON.stringify(timedOutState), stateVersion, participant.id],
+    )
+    participant.state = timedOutState
+    participant.state_version = stateVersion
+    participant.round_timed_out = true
+    return true
+  }
+
+  private async materializeExpiredTimers(client: SqlExecutor, game: GameRow) {
+    const result = await client.query<ParticipantRow>(
+      `SELECT * FROM participants
+       WHERE game_id = $1 AND role = 'player' AND state IS NOT NULL
+         AND removed_at IS NULL
+       FOR UPDATE`,
+      [game.id],
+    )
+    for (const participant of result.rows) {
+      await this.materializeParticipantTimeout(client, participant, game)
+    }
+  }
+
   private createCode() {
     return Array.from(
       { length: 6 },
@@ -947,7 +1130,7 @@ export class SqlSessionStore implements SessionStore {
       createdAt: asIso(game.created_at),
       startedAt: asIso(game.started_at),
       endedAt: asIso(game.ended_at),
-      penaltyRound: game.penalty_round,
+      penaltyRound: concealPenalty ? null : game.penalty_round,
       endRound: game.end_round,
     }
   }
@@ -960,6 +1143,8 @@ export class SqlSessionStore implements SessionStore {
       stateVersion: participant.state_version,
       joinedAt: asIso(participant.joined_at),
       lastSeenAt: asIso(participant.last_seen_at),
+      roundStartedAt: asIso(participant.round_started_at),
+      roundTimedOut: participant.round_timed_out,
     }
   }
 }

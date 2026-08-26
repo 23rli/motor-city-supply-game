@@ -46,8 +46,14 @@ for port in 80 3306; do
   fi
 done
 if ss -ltn "sport = :443" | grep -q LISTEN; then
-  echo "  :443 is already in use. Stop here and check what owns it." >&2
-  exit 1
+  if systemctl is-active --quiet caddy \
+    && [[ -f /etc/caddy/Caddyfile ]] \
+    && grep -qF "$HOSTNAME_ARG {" /etc/caddy/Caddyfile; then
+    echo "  :443 is already served by this Motor City Caddy configuration. Continuing."
+  else
+    echo "  :443 is already in use. Stop here and check what owns it." >&2
+    exit 1
+  fi
 fi
 
 FREE_MB="$(df -Pm / | awk 'NR==2 {print $4}')"
@@ -71,7 +77,7 @@ if [[ $PKG == apt ]]; then
     apt-get update -qq
     apt-get install -y -qq caddy
     # The package ships a demo site on :80. Stop it before it can race nginx.
-    systemctl stop caddy || true
+    systemctl disable --now caddy || true
   fi
 else
   # Amazon Linux 2023 has no "caddy" package and only versioned PostgreSQL.
@@ -226,7 +232,10 @@ umask 022
 log "Installing the service"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 install -m 644 "$HERE/motor-city.service" /etc/systemd/system/motor-city.service
+install -o root -g root -m 755 "$HERE/update.sh" /usr/local/sbin/motor-city-update
+install -o root -g root -m 755 "$HERE/rollback.sh" /usr/local/sbin/motor-city-rollback
 systemctl daemon-reload
+systemctl enable motor-city
 
 log "Configuring TLS on :443 only, leaving :80 to the current game"
 sed -e "s/__HOSTNAME__/$HOSTNAME_ARG/g" -e "s/__EMAIL__/$EMAIL_ARG/g" \

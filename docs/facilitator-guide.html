@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motor City Facilitator Guide</title>
+<style>
+  @page { size: letter; margin: 0.55in; }
+  :root { --ink:#17201e; --green:#176f60; --gold:#c49516; --line:#cbd4d0; --soft:#eef3f1; --red:#8f3029; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:var(--ink); font-family:Georgia, "Times New Roman", serif; font-size:21px; line-height:1.32; background:#fff; }
+  .page { min-height:9.85in; position:relative; page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  header { padding:18px 22px; color:#fff; background:var(--ink); border-bottom:7px solid var(--gold); }
+  header p, header h1 { margin:0; }
+  header p { margin-bottom:5px; font:700 15px Arial, sans-serif; letter-spacing:.12em; text-transform:uppercase; color:#cbd6d2; }
+  h1 { font:700 34px Arial, sans-serif; text-transform:uppercase; }
+  h2 { margin:16px 0 8px; font:700 26px Arial, sans-serif; color:var(--green); }
+  h3 { margin:11px 0 5px; font:700 21px Arial, sans-serif; }
+  p { margin:6px 0; }
+  ol, ul { margin:7px 0; padding-left:28px; }
+  li { margin:5px 0; }
+  .lead { font-size:24px; line-height:1.4; }
+  .address { margin:18px 0; padding:14px 18px; font:700 20px Arial, sans-serif; text-align:center; background:var(--soft); border:2px solid var(--green); }
+  .step { margin:8px 0; padding:9px 13px; display:grid; grid-template-columns:38px 1fr; gap:9px; border:1px solid var(--line); border-left:5px solid var(--green); border-radius:4px; }
+  .num { width:32px; height:32px; display:grid; place-items:center; color:#fff; background:var(--green); border-radius:50%; font:700 16px Arial, sans-serif; }
+  .step strong, .button { font-family:Arial, sans-serif; }
+  .button { display:inline-block; padding:5px 10px; color:#fff; background:var(--green); border-radius:3px; font-weight:700; white-space:nowrap; }
+  .button.danger { background:var(--red); }
+  .callout { margin:11px 0; padding:10px 14px; background:#fff8df; border:2px solid var(--gold); border-radius:4px; }
+  .callout strong { font-family:Arial, sans-serif; }
+  .screen { margin:10px 0; border:2px solid var(--ink); border-radius:5px; overflow:hidden; }
+  .screen-title { padding:8px 12px; color:#fff; background:var(--ink); font:700 16px Arial, sans-serif; text-transform:uppercase; }
+  .screen-body { padding:10px; background:#f7f9f8; }
+  .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .field { padding:8px; background:#fff; border:1px solid var(--line); }
+  .field b { display:block; margin-bottom:4px; font:700 15px Arial, sans-serif; text-transform:uppercase; }
+  .value { font:700 24px Arial, sans-serif; }
+  .timer-row { margin-top:6px; padding:8px; display:grid; grid-template-columns:1fr auto; gap:8px; background:#fff; border:1px solid var(--line); }
+  .check { font:700 17px Arial, sans-serif; }
+  table { width:100%; margin:12px 0; border-collapse:collapse; }
+  th, td { padding:7px 9px; border:1px solid var(--line); text-align:left; }
+  th { font-family:Arial, sans-serif; background:var(--soft); }
+  .help { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .help > div { padding:12px 14px; border:1px solid var(--line); border-top:5px solid var(--gold); }
+  footer { position:absolute; left:0; right:0; bottom:0; padding-top:8px; color:#687773; border-top:1px solid var(--line); font:12px Arial, sans-serif; text-align:center; }
+  .small { font-size:17px; color:#4c5b56; }
+</style>
+</head>
+<body>
+<section class="page">
+<header><p>Large-print classroom guide</p><h1>Motor City Supply Game</h1></header>
+<p class="lead"><strong>Use this guide to set up, run, finish, and download one class session.</strong></p>
+<div class="address">motorcity.boeingcenter.com</div>
+<h2>Before students arrive</h2>
+<div class="step"><span class="num">1</span><div>Open the website. Under <strong>Team session</strong>, choose <span class="button">Facilitate</span>.</div></div>
+<div class="step"><span class="num">2</span><div>Enter your name. Choose the active car models and resource plan.</div></div>
+<div class="step"><span class="num">3</span><div>Set the <strong>Final round</strong>, <strong>WIP penalty round</strong>, and optional round timer.</div></div>
+<div class="step"><span class="num">4</span><div>Press <span class="button">Create session</span>. Save the long recovery code somewhere private.</div></div>
+<div class="callout"><strong>Original 25-round Team Sequence:</strong> Yes, this is the exact predetermined v1 dice-roll sequence in the original order.</div>
+<footer>Motor City Facilitator Guide - Page 1</footer>
+</section>
+
+<section class="page">
+<header><p>Step 1</p><h1>Set the class plan</h1></header>
+<div class="screen"><div class="screen-title">Class plan</div><div class="screen-body">
+<div class="field-grid">
+<div class="field"><b>Final round</b><span class="value">10</span><p class="small">Revenue counts through this round.</p></div>
+<div class="field"><b>WIP penalty round</b><span class="value">10</span><p class="small">Unfinished cars are measured here.</p></div>
+</div>
+<h3>Custom timer example</h3>
+<div class="timer-row"><span>Rounds 1 through 5</span><strong>10 minutes</strong></div>
+<div class="timer-row"><span>Rounds 6 through 10</span><strong>5 minutes</strong></div>
+</div></div>
+<ul>
+<li>Turn on <strong>Use a round timer</strong> only when you want a countdown.</li>
+<li>Use <strong>Add timing change</strong> for another range.</li>
+<li>Use <strong>Restore 10 / 3 min</strong> for 10 minutes in rounds 1-8 and 3 minutes later.</li>
+<li>Every round must be covered. The website warns you about a gap.</li>
+</ul>
+<div class="callout"><strong>At zero:</strong> remaining materials allocate, the student's board locks, and the student presses <strong>Advance round</strong>. The game never advances silently.</div>
+<footer>Motor City Facilitator Guide - Page 2</footer>
+</section>
+
+<section class="page">
+<header><p>Step 2</p><h1>Connect and start</h1></header>
+<h2>Give students two things</h2>
+<ol>
+<li>The website: <strong>motorcity.boeingcenter.com</strong></li>
+<li>The six-character join code shown on your screen.</li>
+</ol>
+<p>Students choose <strong>Join</strong>, enter the code and their name, then press <strong>Join session</strong>.</p>
+<h2>Check before starting</h2>
+<div class="screen"><div class="screen-title">Control</div><div class="screen-body">
+<table><tr><th>Check</th><th>What you should see</th></tr>
+<tr><td>Players</td><td>The expected number of students</td></tr>
+<tr><td>Final round</td><td>Your planned last scoring round</td></tr>
+<tr><td>WIP round</td><td>Your planned penalty measurement round</td></tr>
+<tr><td>Round timer</td><td>Off, or the timing ranges you entered</td></tr></table>
+</div></div>
+<p>When the plan and roster look right, press <span class="button">Start production</span>.</p>
+<div class="callout"><strong>Recovery code:</strong> Keep the long facilitator recovery code private. For 12 hours, it restores your session and lets you reuse the same setup.</div>
+<footer>Motor City Facilitator Guide - Page 3</footer>
+</section>
+
+<section class="page">
+<header><p>Step 3</p><h1>Run the class</h1></header>
+<h2>Your main controls</h2>
+<table><tr><th>Control</th><th>Use it for</th></tr>
+<tr><td><strong>Present</strong></td><td>Open the clean projector view.</td></tr>
+<tr><td><strong>Leaderboard</strong></td><td>See live revenue standings.</td></tr>
+<tr><td><strong>Factory floor</strong></td><td>See each student's progress and connection state.</td></tr>
+<tr><td>Student name</td><td>Open that student's complete round history.</td></tr>
+<tr><td><strong>New code for [name]</strong></td><td>Recover a student who lost their code or device.</td></tr></table>
+<h2>When a timer expires</h2>
+<div class="step"><span class="num">1</span><div>The student's timer reads <strong>Time up</strong>.</div></div>
+<div class="step"><span class="num">2</span><div>Remaining materials allocate automatically.</div></div>
+<div class="step"><span class="num">3</span><div>The board locks. The student presses <span class="button">Advance round</span>.</div></div>
+<p>Each student has an independent timer. Refreshing or rejoining does not reset it.</p>
+<div class="callout"><strong>Keep the reveal intact:</strong> Live standings use revenue only. Students do not see WIP rates, monetary penalties, or projected final scores during play.</div>
+<footer>Motor City Facilitator Guide - Page 4</footer>
+</section>
+
+<section class="page">
+<header><p>Step 4</p><h1>Finish and reveal</h1></header>
+<div class="step"><span class="num">1</span><div>Check <strong>Score up to round</strong> and <strong>Charge unfinished cars at round</strong>.</div></div>
+<div class="step"><span class="num">2</span><div>Press <span class="button danger">End production</span>, then <strong>Yes, end it</strong>.</div></div>
+<div class="step"><span class="num">3</span><div>On the projector, press <span class="button">Charge the unfinished cars</span> when you are ready for the reveal.</div></div>
+<div class="step"><span class="num">4</span><div>Download <span class="button">Excel workbook</span>.</div></div>
+<h2>What the workbook contains</h2>
+<ul>
+<li><strong>Game Details:</strong> setup, resource sequence, scoring rounds, timer, economics, and notes.</li>
+<li><strong>Player Overview:</strong> revenue, penalty, final score, throughput, WIP, and identifier.</li>
+<li><strong>Game Stats:</strong> low, high, median, and mean for the class.</li>
+<li><strong>One sheet per player:</strong> every round, station, and resource movement.</li>
+</ul>
+<footer>Motor City Facilitator Guide - Page 5</footer>
+</section>
+
+<section class="page">
+<header><p>Help</p><h1>If something goes wrong</h1></header>
+<div class="help">
+<div><h3>My browser closed</h3><p>Choose <strong>Rejoin</strong>. Enter the join code, your facilitator name, and your recovery code.</p></div>
+<div><h3>A student's browser closed</h3><p>The student chooses <strong>Rejoin</strong> with their own recovery code. Their board and timer return.</p></div>
+<div><h3>A student lost the code</h3><p>On that student's card, press <strong>New code for [name]</strong>. Read the new code to the student.</p></div>
+<div><h3>Someone joined by mistake</h3><p>Press <strong>Remove</strong>, then confirm. Removal cannot be undone after the run ends.</p></div>
+<div><h3>The screen says offline</h3><p>Pause and wait for <strong>synced</strong>. Do not repeat a command rapidly.</p></div>
+<div><h3>We need to end early</h3><p>Lower both scoring fields to a round the class reached, then end the run.</p></div>
+</div>
+<div class="callout"><strong>Most important:</strong> Never share the facilitator recovery code with students. Download the Excel workbook before leaving the finished session.</div>
+<p class="small">Full reference: docs/FACILITATOR.md &nbsp; | &nbsp; FAQ: docs/FAQ.md</p>
+<footer>Motor City Facilitator Guide - Page 6</footer>
+</section>
+</body>
+</html>

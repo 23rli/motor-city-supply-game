@@ -12,8 +12,10 @@ import greenCar from '../assets/cars/green.webp'
 import redCar from '../assets/cars/red.webp'
 import yellowCar from '../assets/cars/yellow.webp'
 import { RunSetupFields } from '../components/RunSetupFields'
+import { SessionPlanFields } from '../components/SessionPlanFields'
 import { DEFAULT_REVENUE, DEFAULT_WIP_PENALTY } from '../game/engine'
 import { CAR_MODELS, type CarModel, type ResourcePlan } from '../game/types'
+import { defaultEndRound, originalTimerConfig, validateTimerCoverage } from '../game/timer'
 import { ApiClientError, teamApi } from './api'
 import type { TeamCredentials } from './types'
 
@@ -45,11 +47,28 @@ export function TeamLauncher({
   const [revenue, setRevenue] = useState({ ...DEFAULT_REVENUE })
   const [wipPenalty, setWipPenalty] = useState({ ...DEFAULT_WIP_PENALTY })
   const [notes, setNotes] = useState('')
+  const [penaltyRound, setPenaltyRound] = useState(10)
+  const [endRound, setEndRound] = useState(10)
+  const [timer, setTimer] = useState(() => originalTimerConfig(10))
   const [reuseSetup, setReuseSetup] = useState(false)
   const [previousCode, setPreviousCode] = useState('')
   const [previousRecoveryCode, setPreviousRecoveryCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const planError = penaltyRound > endRound
+    ? 'The WIP round cannot be after the final round.'
+    : validateTimerCoverage(timer, endRound)
+
+  const changeResourcePlan = (plan: ResourcePlan) => {
+    const previousDefault = defaultEndRound(resourcePlan)
+    const nextDefault = defaultEndRound(plan)
+    setResourcePlan(plan)
+    if (endRound === previousDefault) {
+      setEndRound(nextDefault)
+      if (penaltyRound === previousDefault) setPenaltyRound(nextDefault)
+      setTimer(originalTimerConfig(nextDefault, timer.enabled))
+    }
+  }
 
   const run = async (action: () => Promise<TeamCredentials>) => {
     setBusy(true)
@@ -93,6 +112,9 @@ export function TeamLauncher({
       revenue,
       wipPenalty,
       notes,
+      penaltyRound,
+      endRound,
+      timer,
       reuse: reuseSetup
         ? {
             code: previousCode.trim().toUpperCase(),
@@ -182,9 +204,19 @@ export function TeamLauncher({
                     revenue={revenue}
                     wipPenalty={wipPenalty}
                     onModelsChange={setModels}
-                    onResourcePlanChange={setResourcePlan}
+                    onResourcePlanChange={changeResourcePlan}
                     onRevenueChange={setRevenue}
                     onWipPenaltyChange={setWipPenalty}
+                  />
+                )}
+                {!reuseSetup && (
+                  <SessionPlanFields
+                    penaltyRound={penaltyRound}
+                    endRound={endRound}
+                    timer={timer}
+                    onPenaltyRoundChange={setPenaltyRound}
+                    onEndRoundChange={setEndRound}
+                    onTimerChange={setTimer}
                   />
                 )}
                 <label><span>Run notes <em>optional</em></span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2_000} rows={3} /></label>
@@ -195,8 +227,11 @@ export function TeamLauncher({
               <p className="form-notice" role="status">{signedOutReason}</p>
             )}
             {error && <p className="form-error" role="alert">{error}</p>}
+            {teamAction === 'create' && !reuseSetup && models.length === 0 && (
+              <p className="form-error" role="alert">Select at least one active car model.</p>
+            )}
 
-            <button className="button button-primary team-submit" type="submit" disabled={busy || (teamAction === 'create' && !reuseSetup && models.length === 0)}>
+            <button className="button button-primary team-submit" type="submit" disabled={busy || (teamAction === 'create' && !reuseSetup && (models.length === 0 || Boolean(planError)))}>
               {busy ? 'Connecting...' : teamAction === 'join' ? 'Join session' : teamAction === 'rejoin' ? 'Rejoin session' : 'Create session'}
               {!busy && <ArrowRight size={17} aria-hidden="true" />}
             </button>

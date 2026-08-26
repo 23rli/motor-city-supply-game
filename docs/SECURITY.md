@@ -33,7 +33,11 @@ These actions are intentionally not automated here because they affect the runni
 - Recovery codes are delivered once in non-cacheable HTTPS JSON. Production proxies, APM agents, and application logging must redact authentication response bodies.
 - Explicit revocation invalidates the stored token immediately.
 - Only hashes of session and recovery secrets are persisted.
-- The API accepts JSON bodies up to 16 KB, validates payloads, rate-limits authenticated sessions independently, and applies IP limits to credential endpoints.
+- The API accepts JSON bodies up to 16 KB and validates every payload.
+- Authenticated sessions are limited independently to 300 requests per minute.
+- Session creation is limited to 10 requests per minute per IP. Join and rejoin are each limited
+  to 120 requests per minute per IP, which permits a full class behind one campus NAT while still
+  bounding credential guesses.
 - CSP, frame denial, and related headers are emitted by the production server.
 - Player and facilitator roles are checked for every mutation.
 - Per-player locks, optimistic versions, and 24-hour idempotency receipts protect commands; scheduled cleanup bounds receipt storage.
@@ -45,6 +49,9 @@ These actions are intentionally not automated here because they affect the runni
 The parallel deployment is hardened for teaching use, not for handling sensitive data.
 
 - TLS terminates at Caddy on `:443` with automatically renewed Let's Encrypt certificates.
+- HSTS sends `max-age=0` to clear previously cached policies while the legacy game still uses
+  HTTP on the same hostname; enable a long-lived policy only after that service is retired or
+  moved to another hostname.
 - The application binds to loopback only and is reachable solely through Caddy.
 - PostgreSQL listens on loopback and authenticates with `scram-sha-256`.
 - The database URL lives in `/etc/motor-city.env`, mode `600`, owned by root, and is never in

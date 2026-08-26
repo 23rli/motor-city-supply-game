@@ -44,6 +44,9 @@
 .shift-readout > div { min-width: 106px; height: 100%; padding: 0 22px; display: grid; align-content: center; gap: 2px; }
 .shift-readout span { display: flex; align-items: center; gap: 5px; color: #aebbb7; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .shift-readout strong { font: 700 23px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.round-timer { min-width: 112px; border-left: 1px solid #34423f; }
+.round-timer strong { color: #f4cf60; }
+.timer-ended strong, .timer-ended span { color: #f2a39a; }
 .topbar-actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
 
 .button {
@@ -561,6 +564,9 @@ body.board-dragging, body.board-dragging * { user-select: none; }
 .modal-actions-split { justify-content: space-between; }
 .modal-actions-split > div { display: flex; gap: 8px; }
 .confirmation-panel p { margin: 0; color: #3f4d49; font-size: 15px; line-height: 1.55; }
+.timeout-panel { min-height: 210px; display: grid; place-content: center; justify-items: center; gap: 14px; text-align: center; }
+.timeout-panel > svg { color: #b0472c; }
+.timeout-panel p { margin: 0; max-width: 340px; color: #3f4d49; font-size: 16px; line-height: 1.5; }
 
 .statistics-kpis { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #ccd4d1; border-radius: 5px; }
 .statistics-kpis > div { min-height: 72px; padding: 14px; display: grid; gap: 6px; background: #fff; }

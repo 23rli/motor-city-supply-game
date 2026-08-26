@@ -37,7 +37,7 @@ Status: implemented.
 
 - short human-readable join codes and rotating recovery credentials
 - live facilitator roster, progress, revenue, and WIP
-- facilitator start, end, elapsed clock, and penalty controls
+- facilitator pre-class scoring plan, customizable round timers, elapsed clock, and end controls
 - ranked leaderboard, cohort statistics, throughput, and on-demand per-player round detail
 - projector view for the room, showing place, name, turn, and revenue only
 - final comparison report, Excel workbook with Game Details, and spreadsheet-compatible export

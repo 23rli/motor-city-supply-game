@@ -25,10 +25,11 @@ import { hashSecret, SESSION_TTL_MS } from './session-security'
 const SESSION_COOKIE = 'motor_city_session'
 
 interface AppOptions {
+  coarseRateLimitMax?: number
   cleanupIntervalMs?: number
   cookieSecure?: boolean
   staticRoot?: string
-  trustProxy?: boolean
+  trustProxy?: boolean | string
   logger?: boolean
 }
 
@@ -92,9 +93,17 @@ const rateLimitKey = (request: FastifyRequest) => {
     : `ip:${request.ip}`
 }
 
-const credentialRouteConfig = {
+const sessionCreationRouteConfig = {
   rateLimit: {
-    max: 20,
+    max: 10,
+    timeWindow: '1 minute',
+    keyGenerator: (request: FastifyRequest) => `ip:${request.ip}`,
+  },
+}
+
+const sessionEntryRouteConfig = {
+  rateLimit: {
+    max: 120,
     timeWindow: '1 minute',
     keyGenerator: (request: FastifyRequest) => `ip:${request.ip}`,
   },
@@ -111,23 +120,33 @@ export function buildApp(
   })
   void app.register(fastifyCookie)
   void app.register(fastifyHelmet, {
+    // Clear prior HSTS while HTTP still serves the legacy game on this hostname.
+    strictTransportSecurity: {
+      maxAge: 0,
+      includeSubDomains: false,
+      preload: false,
+    },
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
+        styleSrcAttr: ["'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"],
+        upgradeInsecureRequests: null,
       },
     },
+    xFrameOptions: { action: 'deny' },
   })
   void app.register(fastifyRateLimit, {
     max: 300,
     timeWindow: '1 minute',
     keyGenerator: rateLimitKey,
+    allowList: (request) => !request.url.startsWith('/api/'),
   })
   if (options.staticRoot) {
     void app.register(fastifyStatic, {
@@ -175,10 +194,14 @@ export function buildApp(
     if (isHttpClientError(error)) {
       return reply.status(error.statusCode).send({
         error: {
-          code: error.code ?? 'REQUEST_REJECTED',
+          code: error.statusCode === 429
+            ? 'RATE_LIMITED'
+            : error.code ?? 'REQUEST_REJECTED',
           message: error.statusCode === 413
             ? 'The request body exceeds the 16 KB limit.'
-            : 'The request was rejected.',
+            : error.statusCode === 429
+              ? 'Too many requests. Wait a minute and try again.'
+              : 'The request was rejected.',
         },
       })
     }
@@ -188,9 +211,42 @@ export function buildApp(
     })
   })
 
-  app.get('/api/health', async () => ({ status: 'ok' }))
+  app.after((error) => {
+    if (error) throw error
 
-  app.post('/api/games', { config: credentialRouteConfig }, async (request, reply) => {
+    const coarseRateLimit = app.createRateLimit({
+      max: options.coarseRateLimitMax ?? 6_000,
+      timeWindow: '1 minute',
+      keyGenerator: (request) => `coarse-ip:${request.ip}`,
+    })
+    app.addHook('onRequest', async (request, reply) => {
+      if (!request.url.startsWith('/api/') || request.url === '/api/health') return
+      const limit = await coarseRateLimit(request)
+      if (!limit.isAllowed && limit.isExceeded) {
+        return reply.status(429).send({
+          error: {
+            code: 'RATE_LIMITED',
+            message: 'Too many requests. Wait a minute and try again.',
+          },
+        })
+      }
+    })
+
+    app.get('/api/health', {
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute',
+          allowList: () => false,
+          keyGenerator: (request: FastifyRequest) => `health-ip:${request.ip}`,
+        },
+      },
+    }, async () => {
+      await store.healthCheck?.()
+      return { status: 'ok' }
+    })
+
+  app.post('/api/games', { config: sessionCreationRouteConfig }, async (request, reply) => {
     const input = parse(createSessionSchema, request.body)
     const issued = await store.createSession(input)
     setSessionCookie(reply, issued.token, options.cookieSecure ?? false)
@@ -198,7 +254,7 @@ export function buildApp(
     return reply.status(201).send(response)
   })
 
-  app.post('/api/games/join', { config: credentialRouteConfig }, async (request, reply) => {
+  app.post('/api/games/join', { config: sessionEntryRouteConfig }, async (request, reply) => {
     const input = parse(joinSessionSchema, request.body)
     const issued = await store.joinSession(input)
     setSessionCookie(reply, issued.token, options.cookieSecure ?? false)
@@ -206,7 +262,7 @@ export function buildApp(
     return reply.status(201).send(response)
   })
 
-  app.post('/api/games/rejoin', { config: credentialRouteConfig }, async (request, reply) => {
+  app.post('/api/games/rejoin', { config: sessionEntryRouteConfig }, async (request, reply) => {
     const input = parse(rejoinSessionSchema, request.body)
     const issued = await store.rejoinSession(input)
     setSessionCookie(reply, issued.token, options.cookieSecure ?? false)
@@ -318,6 +374,7 @@ export function buildApp(
     return reply.status(404).send({
       error: { code: 'NOT_FOUND', message: 'The requested resource was not found.' },
     })
+  })
   })
 
   return app

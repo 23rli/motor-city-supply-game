@@ -8,11 +8,15 @@
 - Solo state is checkpointed to browser storage after every transition.
 - Static car artwork is cropped and compressed to WebP.
 - Team players own independent versioned factory snapshots while sharing game configuration, resource schedules, and facilitator lifecycle state.
+- Planned final/WIP rounds and timer blocks are persisted at session creation and are included in secure setup reuse.
+- Each timed player round has a server-owned start timestamp and timeout flag; refresh or rejoin cannot reset the countdown.
+- On timeout, the authoritative command path allocates materials once, locks further mutations, and only accepts round advance.
 - Fastify validates every command and applies the shared engine server-side.
 - Successful mutations persist idempotency receipts; round advances append report snapshots.
 - Browser sessions use short-lived HttpOnly cookies and rotating recovery credentials.
 - Transactional reports read complete participant rows and never combine versions from different command states.
-- Local development uses embedded PostgreSQL; production uses a pooled TLS connection to managed PostgreSQL.
+- Local development uses embedded PostgreSQL. The current classroom deployment uses pooled
+  loopback PostgreSQL; the application also supports a trusted-TLS managed PostgreSQL target.
 
 ## Target system
 
@@ -28,7 +32,15 @@ Relational database
 
 The server is authoritative for team games. Clients submit commands rather than database-shaped records. A per-player state version rejects stale writes without coupling independent teams.
 
-## Runtime topology
+## Current deployment topology
+
+The classroom deployment serves the SPA and API from one Fastify process behind Caddy on a single
+EC2 instance. PostgreSQL runs on the same host, listens only on loopback, and uses SCRAM
+authentication. Additive schema migrations run during application startup because
+`MIGRATE_ON_START=true`; the deployment health check verifies database access and the timer schema
+before declaring the release healthy.
+
+## Target managed topology
 
 The production container serves the SPA and API from one origin behind an HTTPS load balancer. Application tasks run in private subnets and connect to managed PostgreSQL in isolated database subnets. Runtime database credentials and the trusted RDS CA are injected from a managed secret store. Schema migration runs as a one-off task before application rollout.
 

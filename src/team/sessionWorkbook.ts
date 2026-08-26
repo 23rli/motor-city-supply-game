@@ -1,6 +1,7 @@
 import { CAR_MODELS, RESOURCES, ROUND_STATIONS } from '../game/types'
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
 import { buildWorkbook, type Sheet } from './xlsx'
+import { describeRoundTimer } from '../game/timer'
 import type { TeamExport } from './types'
 
 const total = (values: Record<string, number>) =>
@@ -31,6 +32,7 @@ export function buildSessionWorkbook(data: TeamExport, now = new Date()) {
       ['Ended at', data.game.endedAt ?? ''],
       ['Scored through round', data.game.endRound],
       ['WIP measured at round', data.game.penaltyRound],
+      ['Round timer', describeRoundTimer(data.game.config.timer)],
       ['Exported at', now.toISOString()],
       [],
       ['Model', 'Revenue', 'WIP rate'],

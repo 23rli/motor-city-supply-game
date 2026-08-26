@@ -55,7 +55,7 @@ export function RunSetupFields({
         <span>Resource plan</span>
         <select value={resourcePlan} onChange={(event) => onResourcePlanChange(event.target.value as ResourcePlan)}>
           <option value="classic">Classic 10-round sequence</option>
-          <option value="evan">Original 25-round team sequence</option>
+          <option value="evan">Original 25-round Team Sequence</option>
           <option value="random">Random 100-round sequence</option>
         </select>
       </label>

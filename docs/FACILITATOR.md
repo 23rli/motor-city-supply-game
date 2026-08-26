@@ -4,11 +4,17 @@ Everything below happens in a normal web browser. Nothing to install, for you or
 
 **Address:** https://motorcity.boeingcenter.com
 
+For a one-page checklist, use [QUICK_START.md](QUICK_START.md). For common questions, use
+[FAQ.md](FAQ.md). A large-print version is available as
+[Motor-City-Facilitator-Guide.pdf](Motor-City-Facilitator-Guide.pdf).
+
 ---
 
 ## Before class
 
-Nothing to prepare. The session takes about a minute to set up once you are in the room.
+Allow about five minutes the first time. Within the 12-hour retention window, **Reuse a previous
+facilitator setup** copies its models, economics, scoring rounds, timer, and exact resource
+sequence.
 
 If you want the join code on the projector, plan to have two windows open: one on the projector
 and one on your own screen. The section [Two screens](#two-screens) explains how.
@@ -20,15 +26,31 @@ and one on your own screen. The section [Two screens](#two-screens) explains how
 1. Go to the address above.
 2. Under **Team session**, choose **Facilitate**.
 3. Fill in **Facilitator name**.
-4. Choose the active models and resource plan: the classic 10-round sequence, the original
-  25-round team sequence, or a random 100-round sequence.
-5. Adjust per-model revenue and WIP rates if this class uses different economics, and add any
-  notes you want preserved in the workbook.
-6. Press **Create session**.
+4. Choose the active models and resource plan:
+  - **Classic 10-round sequence** — the original short demonstration.
+  - **Original 25-round Team Sequence** — the exact predetermined v1 dice rolls, in order.
+  - **Random 100-round sequence** — new values for this run.
+5. Adjust per-model revenue and WIP rates only if this class uses different economics.
+6. Under **Class plan**, set the final round, WIP penalty round, and optional timer.
+7. Add notes if useful, then press **Create session**.
 
-To repeat an earlier setup, select **Reuse a previous facilitator setup** and enter that run's
-join code and facilitator recovery code. The exact models, economics, and resource schedule are
-copied; notes are entered for the new class.
+### Custom timer example
+
+For 10 minutes in rounds 1-5 and 5 minutes in rounds 6-10:
+
+1. Turn on **Use a round timer**.
+2. Set the first row to **Rounds 1 through 5 / 10 minutes**.
+3. Set the second row to **Rounds 6 through 10 / 5 minutes**.
+
+Use **Add timing change** for another range. Use **Restore 10 / 3 min** to restore 10 minutes for
+rounds 1-8 and 3 minutes for later rounds. Timer rows must cover every round without a gap.
+
+At zero, the game follows v1: it allocates remaining materials, locks that student's board,
+and asks the student to press **Advance round**. It never advances silently.
+
+To repeat a setup within 12 hours of its creation, select **Reuse a previous facilitator setup**
+and enter that run's join code and facilitator recovery code. Models, economics, scoring rounds,
+timer, and the exact resource schedule are copied; notes are entered for the new class.
 
 You now have two codes:
 
@@ -65,6 +87,9 @@ Names appear on your roster as students arrive. Nobody can move anything yet.
 
 When enough people have joined, press **Start production**.
 
+Before pressing it, read the **Control** panel once. It shows the final round, WIP round, timer
+plan, and player count. This is the last quick check that the class plan is correct.
+
 Every student's factory opens at the same moment. From here they play their own factory; they
 do not share a board.
 
@@ -76,13 +101,13 @@ Your screen shows:
 
 - **Leaderboard** — live standings, ordered by revenue
 - **Factory floor** — a card per student, showing where their cars are sitting
-- **Control** — elapsed session time, the two scoring settings below, and the button to end the run
+- **Control** — saved scoring rounds, timer plan, elapsed session time, and the end control
 
 While the game is running, student boards and the projector do not reveal WIP rates, monetary
 penalties, or projected scores. Your facilitator setup and scoring controls retain those values
 so you can administer the run. See [The reveal](#the-reveal).
 
-Two settings control scoring. You can change them at any point while the game is running:
+The scoring settings are filled from the class plan. You may still adjust them before ending:
 
 | Setting | Meaning |
 | --- | --- |
@@ -91,6 +116,13 @@ Two settings control scoring. You can change them at any point while the game is
 
 The penalty round cannot be later than the round you score up to; the screen will tell you if
 you try.
+
+### What students see when time runs out
+
+The countdown turns to **Time up**. Remaining materials are allocated once, and the board is
+locked. The student presses **Advance round** in the message. Their next round begins with its
+configured time. Resetting or refreshing does not create extra time; rejoin restores the same
+server-owned countdown.
 
 ### If a student gets stuck
 
@@ -153,8 +185,8 @@ Scores lock at the round you chose, and students can no longer move cars. They r
 finished session room where the final report is available.
 
 Your leaderboard now gains the columns that were hidden during play: WIP exposure, peak and
-average work in progress, and the final score. The projector does not change until you press
-**Charge the unfinished cars**.
+average work in progress, cars shipped, and the final score. The projector does not change until
+you press **Charge the unfinished cars**.
 
 You can still download the results afterwards — ending the run does not close anything off.
 
@@ -174,21 +206,21 @@ Two buttons sit at the top of the Factory floor:
     which resources they were issued, exchanged, and left unused
 - **CSV** — a single flat table, for pasting somewhere else
 
-Both work after the run has ended. Download them whenever you like; the session is kept for
-12 hours.
+Both work after the run has ended. Download them before the 12-hour session-retention window ends.
 
 ---
 
 ## Things worth knowing
 
-- **The factory rules preserve the original formulas and flow.** The automatic gameplay timer is
-  intentionally omitted; your console clock reports elapsed session time but never advances a round.
+- **The factory rules preserve the original formulas and flow.** The round timer is optional and
+  customizable. When enabled, its timeout behavior matches v1. The separate console clock reports
+  total elapsed class time and never advances a round.
 - **Students never see each other's numbers** unless you project them. Their own screen shows
   their own factory only.
 - **During the game, standings are revenue only.** The cost of unfinished cars is applied once,
   at the end, when you reveal it — and the order can change sharply. Students who have worked
   out that piling up cars is expensive will be watching for it.
-- **A browser session credential lasts 12 hours.** Download the workbook before you leave; data
-  retention is managed separately from browser sign-in expiry.
+- **A browser session credential lasts 12 hours.** The game and player data are also deleted
+  12 hours after session creation, so download the workbook before you leave.
 - **Closing your browser does not end the game.** Students keep playing. Use your recovery code
   to get back in.
