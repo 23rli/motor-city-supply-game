@@ -15,6 +15,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const source = resolve(root, 'docs', 'facilitator-guide.html')
 const output = resolve(root, 'docs', 'Motor-City-Facilitator-Guide.pdf')
 const manifestOutput = resolve(root, 'docs', 'Motor-City-Facilitator-Guide.manifest.json')
+const canonicalSource = () => readFileSync(source, 'utf8').replace(/\r\n?/g, '\n')
 const candidates = [
   process.env.BROWSER_BIN,
   process.env['ProgramFiles(x86)'] && join(process.env['ProgramFiles(x86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
@@ -51,7 +52,7 @@ try {
   if (signature !== '%PDF-') throw new Error('Generated artifact is not a PDF.')
   const pages = pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0
   if (pages !== 6) throw new Error(`Expected 6 PDF pages, generated ${pages}.`)
-  const sourceHash = createHash('sha256').update(readFileSync(source)).digest('hex')
+  const sourceHash = createHash('sha256').update(canonicalSource()).digest('hex')
   const pdfHash = createHash('sha256').update(pdf).digest('hex')
   writeFileSync(manifestOutput, `${JSON.stringify({
     version: 1,

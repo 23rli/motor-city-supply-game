@@ -35,6 +35,7 @@ for (const file of files) {
 const pdf = join(docsRoot, 'Motor-City-Facilitator-Guide.pdf')
 const manifestPath = join(docsRoot, 'Motor-City-Facilitator-Guide.manifest.json')
 const guideSource = join(docsRoot, 'facilitator-guide.html')
+const canonicalSource = () => readFileSync(guideSource, 'utf8').replace(/\r\n?/g, '\n')
 const pdfBytes = existsSync(pdf) ? readFileSync(pdf) : null
 let pages = 0
 if (!pdfBytes || pdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
@@ -48,7 +49,7 @@ if (!existsSync(manifestPath) || !existsSync(guideSource)) {
 } else {
   try {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    const sourceHash = createHash('sha256').update(readFileSync(guideSource)).digest('hex')
+    const sourceHash = createHash('sha256').update(canonicalSource()).digest('hex')
     const artifactHash = pdfBytes
       ? createHash('sha256').update(pdfBytes).digest('hex')
       : null
