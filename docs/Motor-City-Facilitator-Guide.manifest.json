@@ -1,8 +1,8 @@
 {
   "version": 1,
   "source": "facilitator-guide.html",
-  "sourceSha256": "7cbfe31cba081908d3269f78849bbe50f287a0f44d57e52d8682fe6f2e734454",
+  "sourceSha256": "560a6e9020b710dff962620b1ab60c6ec81770212fdb91c7afeceae7cf6e0e49",
   "artifact": "Motor-City-Facilitator-Guide.pdf",
-  "artifactSha256": "3a29f79b50bf1f0da037e99f92b24d9e60121727ffd8870405727757bc6d8be0",
+  "artifactSha256": "3db29febd31664fe27143afcfc5a256e3eeaf7f3f69a3cb40232c71b08eec382",
   "pages": 6
 }

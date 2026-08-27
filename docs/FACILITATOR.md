@@ -4,6 +4,8 @@ Everything below happens in a normal web browser. Nothing to install, for you or
 
 **Address:** https://motorcity.boeingcenter.com
 
+For first-time facilitator training and sign-off, use the
+[printable SOP](Motor-City-Facilitator-SOP.pdf) or its [editable source](FACILITATOR_SOP.md).
 For a one-page checklist, use [QUICK_START.md](QUICK_START.md). For common questions, use
 [FAQ.md](FAQ.md). A large-print version is available as
 [Motor-City-Facilitator-Guide.pdf](Motor-City-Facilitator-Guide.pdf).
@@ -183,8 +185,10 @@ else. The penalty arithmetic and scores stay hidden until you choose to reveal t
 
 Press **Escape**, or **Close**, to leave it.
 
-To use two screens at once, open the game in a second browser window, use **Rejoin** with your
-own name and recovery code, and put that window on the projector. Press **Present** there.
+To use two screens at once, open the game in a second browser window, use **Rejoin** with the same
+facilitator name you entered when creating the session and the facilitator recovery code, and put
+that window on the projector. Press **Present** there. The presenter remains public-safe even when
+you open **Private scoring** in the separate instructor window.
 
 ---
 
@@ -193,8 +197,8 @@ own name and recovery code, and put that window on the projector. Press **Presen
 All game, the room sees revenue only. Whoever has earned the most sits top. Nobody — including
 you — sees what the cars still sitting on the floor are about to cost.
 
-After you end the run, the projector still shows that same revenue order, with a button:
-**Charge the unfinished cars**. Press it when you are ready. Every board is charged for its
+After you end the run, switch to the presenter window. It still shows that same revenue order, now
+with a button: **Charge the unfinished cars**. Press it when you are ready. Every board is charged for its
 unfinished cars, the amounts appear in red, and the names slide into their real final order.
 
 A student who piled up work in progress can drop several places at this point. That is the
@@ -251,6 +255,7 @@ Both work after the run has ended. Download them before the 12-hour session-rete
   at the end, when you reveal it — and the order can change sharply. Students who have worked
   out that piling up cars is expensive will be watching for it.
 - **A browser session credential lasts 12 hours.** The game and player data are also deleted
-  12 hours after session creation, so download the workbook before you leave.
+  12 hours after session creation, regardless of when production ends, so download the workbook
+  immediately after the run.
 - **Closing your browser does not end the game.** Students keep playing. Use your recovery code
   to get back in.

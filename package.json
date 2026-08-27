@@ -19,7 +19,8 @@
     "lint": "oxlint",
     "test": "vitest run",
     "docs:check": "node scripts/check-doc-links.mjs",
-    "docs:pdf": "node scripts/build-facilitator-guide.mjs",
+    "docs:pdf": "node scripts/build-facilitator-guide.mjs && node scripts/build-facilitator-sop.mjs",
+    "docs:sop-pdf": "node scripts/build-facilitator-sop.mjs",
     "preview": "vite preview",
     "start:api": "node dist-server/index.js"
   },
@@ -45,6 +46,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "concurrently": "^10.0.4",
+    "marked": "^16.4.2",
     "oxlint": "^1.71.0",
     "tsup": "^8.5.1",
     "tsx": "^4.23.1",

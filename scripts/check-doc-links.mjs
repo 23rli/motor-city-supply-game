@@ -32,39 +32,62 @@ for (const file of files) {
   }
 }
 
-const pdf = join(docsRoot, 'Motor-City-Facilitator-Guide.pdf')
-const manifestPath = join(docsRoot, 'Motor-City-Facilitator-Guide.manifest.json')
-const guideSource = join(docsRoot, 'facilitator-guide.html')
-const canonicalSource = () => readFileSync(guideSource, 'utf8').replace(/\r\n?/g, '\n')
-const pdfBytes = existsSync(pdf) ? readFileSync(pdf) : null
-let pages = 0
-if (!pdfBytes || pdfBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
-  broken.push('docs/Motor-City-Facilitator-Guide.pdf -> missing or invalid PDF')
-} else {
-  pages = pdfBytes.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0
-  if (pages !== 6) broken.push(`docs/Motor-City-Facilitator-Guide.pdf -> expected 6 pages, found ${pages}`)
-}
-if (!existsSync(manifestPath) || !existsSync(guideSource)) {
-  broken.push('facilitator guide -> missing integrity manifest or HTML source')
-} else {
+const artifacts = [
+  {
+    label: 'facilitator guide',
+    source: 'facilitator-guide.html',
+    artifact: 'Motor-City-Facilitator-Guide.pdf',
+    manifest: 'Motor-City-Facilitator-Guide.manifest.json',
+    validPages: (pages) => pages === 6,
+    expectedPages: '6',
+  },
+  {
+    label: 'facilitator SOP',
+    source: 'FACILITATOR_SOP.md',
+    artifact: 'Motor-City-Facilitator-SOP.pdf',
+    manifest: 'Motor-City-Facilitator-SOP.manifest.json',
+    validPages: (pages) => pages >= 6 && pages <= 30,
+    expectedPages: '6-30',
+  },
+]
+
+for (const item of artifacts) {
+  const sourcePath = join(docsRoot, item.source)
+  const artifactPath = join(docsRoot, item.artifact)
+  const manifestPath = join(docsRoot, item.manifest)
+  const artifactBytes = existsSync(artifactPath) ? readFileSync(artifactPath) : null
+  let pages = 0
+  if (!artifactBytes || artifactBytes.subarray(0, 5).toString('ascii') !== '%PDF-') {
+    broken.push(`docs/${item.artifact} -> missing or invalid PDF`)
+  } else {
+    pages = artifactBytes.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0
+    if (!item.validPages(pages)) {
+      broken.push(`docs/${item.artifact} -> expected ${item.expectedPages} pages, found ${pages}`)
+    }
+  }
+  if (!existsSync(manifestPath) || !existsSync(sourcePath)) {
+    broken.push(`${item.label} -> missing integrity manifest or source`)
+    continue
+  }
   try {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    const sourceHash = createHash('sha256').update(canonicalSource()).digest('hex')
-    const artifactHash = pdfBytes
-      ? createHash('sha256').update(pdfBytes).digest('hex')
+    const source = readFileSync(sourcePath, 'utf8').replace(/\r\n?/g, '\n')
+    const sourceHash = createHash('sha256').update(source).digest('hex')
+    const artifactHash = artifactBytes
+      ? createHash('sha256').update(artifactBytes).digest('hex')
       : null
     if (
       manifest.version !== 1
-      || manifest.source !== 'facilitator-guide.html'
-      || manifest.artifact !== 'Motor-City-Facilitator-Guide.pdf'
+      || manifest.source !== item.source
+      || manifest.artifact !== item.artifact
       || manifest.pages !== pages
       || manifest.sourceSha256 !== sourceHash
       || manifest.artifactSha256 !== artifactHash
     ) {
-      broken.push('facilitator guide -> artifact is stale or altered; run npm run docs:pdf')
+      broken.push(`${item.label} -> artifact is stale or altered; run npm run docs:pdf`)
     }
   } catch {
-    broken.push('facilitator guide -> integrity manifest is invalid JSON')
+    broken.push(`${item.label} -> integrity manifest is invalid JSON`)
   }
 }
 

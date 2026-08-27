@@ -11,6 +11,9 @@ deployment still serves the old game on the same hostname over HTTP.
 | Old game | http://motorcity.boeingcenter.com |
 
 Documentation: [docs/README.md](docs/README.md).
+Training a professor, TA, or backup facilitator: the
+[printable SOP](docs/Motor-City-Facilitator-SOP.pdf) or its
+[editable source](docs/FACILITATOR_SOP.md).
 Running a class: [docs/QUICK_START.md](docs/QUICK_START.md) or the
 [full facilitator manual](docs/FACILITATOR.md).
 Deploying and looking after the server: [docs/OPERATIONS.md](docs/OPERATIONS.md).

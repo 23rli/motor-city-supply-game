@@ -4,6 +4,7 @@
 
 | I need to... | Use this |
 | --- | --- |
+| Train or qualify a professor, TA, or backup facilitator | [Printable SOP](Motor-City-Facilitator-SOP.pdf) and [editable source](FACILITATOR_SOP.md) |
 | Run a class with the fewest possible instructions | [One-page quick start](QUICK_START.md) |
 | Print or email a large-type guide | [Facilitator PDF](Motor-City-Facilitator-Guide.pdf) |
 | Understand every facilitator control | [Full facilitator manual](FACILITATOR.md) |
@@ -32,7 +33,9 @@
 
 User-facing labels in these documents are written exactly as they appear in the application.
 Any change to setup, timing, scoring, recovery, exports, or deployment must update the owning guide
-and its tests in the same change.
+and its tests in the same change. A major facilitator workflow change must also update the training
+SOP and its qualification checklist.
 
-The editable print source is [facilitator-guide.html](facilitator-guide.html). Regenerate the PDF
-with `npm run docs:pdf`. Set `BROWSER_BIN` if Edge or Chrome is not in a standard location.
+The large-print guide source is [facilitator-guide.html](facilitator-guide.html), and the SOP PDF is
+generated from [FACILITATOR_SOP.md](FACILITATOR_SOP.md). Regenerate both with `npm run docs:pdf`.
+Set `BROWSER_BIN` if Edge or Chrome is not in a standard location.

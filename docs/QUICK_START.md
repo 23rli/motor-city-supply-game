@@ -2,6 +2,10 @@
 
 **Website:** https://motorcity.boeingcenter.com
 
+First-time or backup facilitator? Complete the
+[facilitator training and classroom SOP](Motor-City-Facilitator-SOP.pdf) before using this
+day-of checklist.
+
 ## Before students arrive
 
 1. Open the website.
@@ -16,7 +20,8 @@
 6. Under **Class plan**, confirm or change:
    - **Final round**
    - **WIP penalty round**
-   - **Use a round timer**
+   - **Use a round timer** — it is already enabled in the recommended default at 10 minutes for
+     rounds 1-10 and 5 minutes for rounds 11-25
 7. Press **Create session**.
 8. Save the long **Recovery code** somewhere private.
 
@@ -45,12 +50,15 @@
 
 1. Open **Private scoring** and check **Score up to round** and **WIP penalty round**.
 2. Press **End production**, then **Yes, end it**.
-3. In the projector view, press **Charge the unfinished cars** when ready.
+3. Switch to the presenter window. After ending is confirmed, press
+   **Charge the unfinished cars** when ready.
 4. Download **Excel workbook**. It includes class setup, scores, and every player's rounds.
 
 ## If something goes wrong
 
 - Closed browser: choose **Rejoin** and use the recovery code.
 - Wrong student entry: use **Remove**, then confirm.
-- Network problem: wait for **synced** before continuing.
+- Network problem: **offline** means the screen is not currently synchronized. Pause actions and
+   wait for **synced** before continuing.
 - Never share the facilitator recovery code with students.
+- Data expires 12 hours after session creation, not 12 hours after ending. Export immediately.
