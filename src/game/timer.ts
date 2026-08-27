@@ -7,12 +7,12 @@ import type {
 export const defaultEndRound = (resourcePlan: ResourcePlan) =>
   resourcePlan === 'evan' ? 25 : 10
 
-export function recommendedClassTimerConfig(): RoundTimerConfig {
+export function recommendedEvanTimerConfig(): RoundTimerConfig {
   return {
     enabled: true,
     segments: [
-      { startRound: 1, endRound: 5, durationSeconds: 600 },
-      { startRound: 6, endRound: 10, durationSeconds: 300 },
+      { startRound: 1, endRound: 10, durationSeconds: 600 },
+      { startRound: 11, endRound: 25, durationSeconds: 300 },
     ],
   }
 }

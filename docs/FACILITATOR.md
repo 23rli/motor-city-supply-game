@@ -26,9 +26,10 @@ and one on your own screen. The section [Two screens](#two-screens) explains how
 1. Go to the address above.
 2. Under **Team session**, choose **Facilitate**.
 3. Fill in **Facilitator name**.
-4. Review the preloaded **Recommended default**. It uses all four models, the Classic 10-round
-  sequence, standard economics, final/WIP round 10, and timers of 10 minutes for rounds 1-5
-  and 5 minutes for rounds 6-10. Press **Restore** later if you want to return to it.
+4. Review the preloaded **Recommended default**. It uses all four models, the exact Original
+  25-round v1 resource sequence, standard economics, final/WIP round 25, and timers of 10
+  minutes for rounds 1-10 and 5 minutes for rounds 11-25. Press **Restore** later if you want
+  to return to it.
 5. Choose a different resource plan only when needed:
   - **Classic 10-round sequence** — the original short demonstration.
   - **Original 25-round Team Sequence** — the exact predetermined v1 dice rolls, in order.
@@ -37,13 +38,14 @@ and one on your own screen. The section [Two screens](#two-screens) explains how
 7. Under **Class plan**, confirm or change the final round, WIP penalty round, and timer.
 8. Add notes if useful, then press **Create session**.
 
-### Custom timer example
+### Default timer
 
-For 10 minutes in rounds 1-5 and 5 minutes in rounds 6-10:
+The recommended setup is already configured for 10 minutes in rounds 1-10 and 5 minutes in
+rounds 11-25:
 
 1. Turn on **Use a round timer**.
-2. Set the first row to **Rounds 1 through 5 / 10 minutes**.
-3. Set the second row to **Rounds 6 through 10 / 5 minutes**.
+2. Set the first row to **Rounds 1 through 10 / 10 minutes**.
+3. Set the second row to **Rounds 11 through 25 / 5 minutes**.
 
 Use **Add timing change** for another range. Use **Restore 10 / 3 min** to restore 10 minutes for
 rounds 1-8 and 3 minutes for later rounds. Timer rows must cover every round without a gap.
@@ -122,6 +124,17 @@ them before ending, and collapse it again if students can see your admin screen:
 
 The penalty round cannot be later than the round you score up to; the screen will tell you if
 you try.
+
+### Exact v1 optimal result
+
+When the exact recommended setup is unchanged, **Private scoring** shows the verified optimal
+result: **$81.00**. That result ships 28 cars — 24 blue, 2 green, and 2 red — for $81.00 revenue
+with no WIP penalty at round 25. It was solved against the exact 25-round resource sequence and
+replayed through the same movement, allocation, conversion, paint, and scoring rules used by
+the game.
+
+The benchmark disappears if models, economics, resource sequence, final round, or WIP round are
+changed. It is a result benchmark, not a single required click-by-click route.
 
 ### What students see when time runs out
 

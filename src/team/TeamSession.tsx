@@ -21,6 +21,7 @@ import { Modal } from '../components/Modal'
 import { PlayerRoundHistory } from '../components/PlayerRoundHistory'
 import { PresenterView } from '../components/PresenterView'
 import { PrivateScoringPanel } from '../components/PrivateScoringPanel'
+import { getEvanOptimalBenchmark } from '../game/evan-benchmark'
 import { CAR_MODELS } from '../game/types'
 import { describeRoundTimer } from '../game/timer'
 import { ApiClientError, teamApi } from './api'
@@ -509,6 +510,11 @@ export function TeamSession({
                   penaltyRound={penaltyRound}
                   busy={busy}
                   ending={ending}
+                  benchmark={getEvanOptimalBenchmark(
+                    snapshot.game.config,
+                    snapshot.game.status === 'active' ? endRound : snapshot.game.endRound,
+                    snapshot.game.status === 'active' ? penaltyRound : snapshot.game.penaltyRound,
+                  )}
                   onEndRoundChange={setEndRound}
                   onPenaltyRoundChange={setPenaltyRound}
                   onRequestEnd={() => setEnding(true)}

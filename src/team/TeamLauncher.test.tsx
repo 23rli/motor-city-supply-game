@@ -3,26 +3,26 @@ import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_REVENUE, DEFAULT_WIP_PENALTY } from '../game/engine'
-import { recommendedClassTimerConfig } from '../game/timer'
+import { recommendedEvanTimerConfig } from '../game/timer'
 import { CAR_MODELS } from '../game/types'
-import { isRecommendedClassSetup } from './recommended-setup'
+import { isRecommendedEvanSetup } from './recommended-setup'
 import { RecommendedSetupCard } from './TeamLauncher'
 
 const recommendedSetup = {
   models: [...CAR_MODELS],
-  resourcePlan: 'classic' as const,
+  resourcePlan: 'evan' as const,
   revenue: { ...DEFAULT_REVENUE },
   wipPenalty: { ...DEFAULT_WIP_PENALTY },
-  endRound: 10,
-  penaltyRound: 10,
-  timer: recommendedClassTimerConfig(),
+  endRound: 25,
+  penaltyRound: 25,
+  timer: recommendedEvanTimerConfig(),
 }
 
 describe('recommended facilitator setup', () => {
   it('recognizes the complete preset and detects customization', () => {
-    expect(isRecommendedClassSetup(recommendedSetup)).toBe(true)
-    expect(isRecommendedClassSetup({ ...recommendedSetup, endRound: 11 })).toBe(false)
-    expect(isRecommendedClassSetup({
+    expect(isRecommendedEvanSetup(recommendedSetup)).toBe(true)
+    expect(isRecommendedEvanSetup({ ...recommendedSetup, endRound: 24 })).toBe(false)
+    expect(isRecommendedEvanSetup({
       ...recommendedSetup,
       timer: { ...recommendedSetup.timer, enabled: false },
     })).toBe(false)
@@ -34,10 +34,11 @@ describe('recommended facilitator setup', () => {
     )
 
     expect(markup).toContain('Recommended default')
-    expect(markup).toContain('10-round class')
+    expect(markup).toContain('25-round class')
+    expect(markup).toContain('Exact v1 sequence')
     expect(markup).toContain('standard economics')
-    expect(markup).toContain('final/WIP at 10')
-    expect(markup).toContain('timer 10 min R1-5, 5 min R6-10')
+    expect(markup).toContain('final/WIP at 25')
+    expect(markup).toContain('timer 10 min R1-10, 5 min R11-25')
     expect(markup).toContain('role="status"')
     expect(markup).toContain('Recommended setup applied.')
     expect(markup).toContain('disabled=""')

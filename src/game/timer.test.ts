@@ -3,7 +3,7 @@ import {
   defaultEndRound,
   describeRoundTimer,
   originalTimerConfig,
-  recommendedClassTimerConfig,
+  recommendedEvanTimerConfig,
   roundTimerDurationSeconds,
   validateTimerCoverage,
 } from './timer'
@@ -25,12 +25,12 @@ describe('session plan defaults', () => {
     })
   })
 
-  it('provides the professor-requested ten-round class preset', () => {
-    expect(recommendedClassTimerConfig()).toEqual({
+  it('provides the 25-round class preset with a timing change after round 10', () => {
+    expect(recommendedEvanTimerConfig()).toEqual({
       enabled: true,
       segments: [
-        { startRound: 1, endRound: 5, durationSeconds: 600 },
-        { startRound: 6, endRound: 10, durationSeconds: 300 },
+        { startRound: 1, endRound: 10, durationSeconds: 600 },
+        { startRound: 11, endRound: 25, durationSeconds: 300 },
       ],
     })
   })

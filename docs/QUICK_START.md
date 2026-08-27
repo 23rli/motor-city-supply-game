@@ -8,9 +8,9 @@
 2. Choose **Facilitate**.
 3. Enter your name.
 4. Review the preloaded **Recommended default**:
-   - all four models, the Classic 10-round sequence, and standard economics
-   - final round 10 and WIP penalty round 10
-   - 10 minutes for rounds 1-5 and 5 minutes for rounds 6-10
+   - all four models, the exact Original 25-round v1 sequence, and standard economics
+   - final round 25 and WIP penalty round 25
+   - 10 minutes for rounds 1-10 and 5 minutes for rounds 11-25
 5. Change the resource plan only when needed.
    - **Original 25-round Team Sequence** uses the exact predetermined v1 dice rolls.
 6. Under **Class plan**, confirm or change:
@@ -26,7 +26,8 @@
 2. Wait for their names to appear in **Roster**.
 3. Read the public-safe **Control** facts once: player count, final round, and timer.
 4. Open **Private scoring** to verify the WIP penalty round, then collapse it before students
-   can see the admin screen.
+   can see the admin screen. For the unchanged default, it also shows the verified optimal
+   result: **$81.00** from 28 shipped cars with no WIP penalty.
 5. Press **Start production**.
 
 ## During the run

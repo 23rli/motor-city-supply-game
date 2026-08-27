@@ -19,11 +19,11 @@ import { CAR_MODELS, type CarModel, type ResourcePlan } from '../game/types'
 import {
   defaultEndRound,
   originalTimerConfig,
-  recommendedClassTimerConfig,
+  recommendedEvanTimerConfig,
   validateTimerCoverage,
 } from '../game/timer'
 import { ApiClientError, teamApi } from './api'
-import { isRecommendedClassSetup } from './recommended-setup'
+import { isRecommendedEvanSetup } from './recommended-setup'
 import type { TeamCredentials } from './types'
 
 interface TeamLauncherProps {
@@ -46,9 +46,9 @@ export function RecommendedSetupCard({
     <div className="recommended-setup" data-active={applied}>
       <div>
         <span>Recommended default</span>
-        <strong>10-round class</strong>
+        <strong>25-round class</strong>
         <small>
-          All models · Classic sequence · standard economics · final/WIP at 10 · timer 10 min R1-5, 5 min R6-10
+          All models · Exact v1 sequence · standard economics · final/WIP at 25 · timer 10 min R1-10, 5 min R11-25
         </small>
         <span className="sr-only" role="status" aria-live="polite">
           {applied ? 'Recommended setup applied.' : 'Setup customized.'}
@@ -82,13 +82,13 @@ export function TeamLauncher({
   const [code, setCode] = useState('')
   const [recoveryCode, setRecoveryCode] = useState('')
   const [models, setModels] = useState<CarModel[]>([...CAR_MODELS])
-  const [resourcePlan, setResourcePlan] = useState<ResourcePlan>('classic')
+  const [resourcePlan, setResourcePlan] = useState<ResourcePlan>('evan')
   const [revenue, setRevenue] = useState({ ...DEFAULT_REVENUE })
   const [wipPenalty, setWipPenalty] = useState({ ...DEFAULT_WIP_PENALTY })
   const [notes, setNotes] = useState('')
-  const [penaltyRound, setPenaltyRound] = useState(10)
-  const [endRound, setEndRound] = useState(10)
-  const [timer, setTimer] = useState(recommendedClassTimerConfig)
+  const [penaltyRound, setPenaltyRound] = useState(25)
+  const [endRound, setEndRound] = useState(25)
+  const [timer, setTimer] = useState(recommendedEvanTimerConfig)
   const [reuseSetup, setReuseSetup] = useState(false)
   const [previousCode, setPreviousCode] = useState('')
   const [previousRecoveryCode, setPreviousRecoveryCode] = useState('')
@@ -97,7 +97,7 @@ export function TeamLauncher({
   const planError = penaltyRound > endRound
     ? 'The WIP round cannot be after the final round.'
     : validateTimerCoverage(timer, endRound)
-  const recommendedSetupApplied = isRecommendedClassSetup({
+  const recommendedSetupApplied = isRecommendedEvanSetup({
     models,
     resourcePlan,
     revenue,
@@ -109,12 +109,12 @@ export function TeamLauncher({
 
   const restoreRecommendedSetup = () => {
     setModels([...CAR_MODELS])
-    setResourcePlan('classic')
+    setResourcePlan('evan')
     setRevenue({ ...DEFAULT_REVENUE })
     setWipPenalty({ ...DEFAULT_WIP_PENALTY })
-    setEndRound(10)
-    setPenaltyRound(10)
-    setTimer(recommendedClassTimerConfig())
+    setEndRound(25)
+    setPenaltyRound(25)
+    setTimer(recommendedEvanTimerConfig())
   }
 
   const changeResourcePlan = (plan: ResourcePlan) => {

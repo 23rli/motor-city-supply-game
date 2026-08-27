@@ -18,12 +18,13 @@ The WIP penalty round cannot be later than the final round.
 
 ## Can I customize the timer by round range?
 
-**Yes.** The recommended default already uses these contiguous timing rows:
+**Yes.** The recommended default already uses these contiguous timing rows, changing after
+round 10:
 
 | Rounds | Time per round |
 | --- | ---: |
-| 1-5 | 10 minutes |
-| 6-10 | 5 minutes |
+| 1-10 | 10 minutes |
+| 11-25 | 5 minutes |
 
 Use **Add timing change** for another range. Use **Restore 10 / 3 min** for 10 minutes in rounds 1-8
 and 3 minutes in later rounds.
@@ -31,15 +32,21 @@ and 3 minutes in later rounds.
 ## What is the recommended facilitator setup?
 
 The Facilitate screen opens with a clearly labeled **Recommended default**: all four models,
-Classic 10-round sequence, standard economics, final and WIP rounds at 10, and timers of 10
-minutes for rounds 1-5 and 5 minutes for rounds 6-10. It is a convenience preset based on the
-professor's example, not a gameplay requirement. Use **Restore** to return to it.
+the exact Original 25-round v1 sequence, standard economics, final and WIP rounds at 25, and
+timers of 10 minutes for rounds 1-10 and 5 minutes for rounds 11-25. Use **Restore** to return
+to it after making changes.
 
 ## Is there an optimal factory route?
 
 There is one legal production route: **Planning → Manufacturing → Assembly → Quality → Paint →
-Done**. The app enforces it. The strategic choices are lane priority, when to allocate, and when
-to convert resources; there is no single optimal decision sequence for every resource plan.
+Done**. The app enforces it. Lane priority, allocation timing, and resource conversion remain
+strategic choices.
+
+For the exact recommended v1 setup, the verified optimal result is **$81.00**: 28 shipped cars
+(24 blue, 2 green, and 2 red), $81.00 revenue, and no WIP penalty at round 25. **Private scoring**
+shows this benchmark only while the exact sequence, models, economics, and scoring rounds still
+match. It is an optimal result; more than one legal click-by-click route may attain the same
+result.
 
 ## What happens when time reaches zero?
 
