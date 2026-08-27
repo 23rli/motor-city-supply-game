@@ -59,7 +59,7 @@ const cacheKey = (input: OptimizationInput) => createHash('sha256')
 
 const sourceMode = import.meta.url.endsWith('.ts')
 const workerUrl = () => new URL(
-  sourceMode ? './optimizer-worker.ts' : './optimizer-worker.js',
+  sourceMode ? './optimizer-worker-bootstrap.mjs' : './optimizer-worker.js',
   import.meta.url,
 )
 
@@ -130,7 +130,6 @@ export class OptimizationJobs implements OptimizationService {
     const timeLimitSeconds = timeLimitFor(job.input.endRound)
     const worker = new Worker(workerUrl(), {
       workerData: { input: job.input, timeLimitSeconds },
-      execArgv: sourceMode ? ['--import', 'tsx'] : undefined,
     })
     this.activeWorker = worker
     let settled = false
