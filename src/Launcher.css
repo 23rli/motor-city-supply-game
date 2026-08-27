@@ -721,6 +721,26 @@
 .session-details dd { margin: 0; font: 700 20px/1 var(--font-display); }
 .session-details .session-timer-plan { grid-column: 1 / -1; }
 .session-details .session-timer-plan dd { font-size: 14px; line-height: 1.35; }
+.private-scoring { margin: 0 18px 14px; color: #33413d; background: #f7f9f8; border: 1px solid #c8d0cd; border-radius: 5px; }
+.private-scoring > summary { min-height: 56px; padding: 8px 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; color: #33413d; cursor: pointer; list-style: none; }
+.private-scoring > summary::-webkit-details-marker { display: none; }
+.private-scoring > summary::after { content: '+'; color: #5b6864; font: 700 18px/1 var(--font-display); }
+.private-scoring[open] > summary::after { content: '\2212'; }
+.private-scoring > summary > svg { color: #8f3029; }
+.private-scoring > summary > span { min-width: 0; display: grid; gap: 3px; }
+.private-scoring > summary strong { font: 700 14px/1 var(--font-display); text-transform: uppercase; }
+.private-scoring > summary small { overflow: hidden; color: #66736f; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.private-scoring-body { padding-bottom: 2px; border-top: 1px solid #dce1df; }
+.private-scoring-note { margin: 0; padding: 11px 14px; color: #6d4943; background: #fdf1ee; font-size: 12px; line-height: 1.4; }
+.private-scoring-values { margin: 0; padding: 14px; }
+.private-scoring-values div { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 12px; }
+.private-scoring-values dt { color: #5b6864; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.private-scoring-values dd { margin: 0; font: 700 20px/1 var(--font-display); }
+.private-scoring .end-settings { padding: 14px; }
+.private-scoring .form-error { margin: 0 14px 12px; }
+.private-scoring .control-action { width: calc(100% - 28px); margin: 4px 14px 14px; }
+.private-scoring .end-confirm { padding: 0 14px 14px; }
+.private-scoring .end-confirm-actions .control-action { width: 100%; margin: 0; }
 .end-settings { padding: 0 18px 12px; display: grid; gap: 14px; }
 .end-settings label { min-width: 0; display: grid; gap: 5px; }
 .end-settings span { color: #253330; font-size: 14px; font-weight: 700; }
@@ -833,6 +853,13 @@
 .reuse-fields { display: grid; gap: 12px; }
 .reuse-fields label { display: grid; gap: 7px; }
 .reuse-fields label > span { color: #53625d; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+.recommended-setup { min-height: 88px; padding: 12px 13px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; color: #33413d; background: #eef3f1; border: 1px solid #c8d0cd; border-left: 4px solid #16806f; border-radius: 5px; }
+.recommended-setup > div { min-width: 0; display: grid; gap: 4px; }
+.recommended-setup span { color: #167565; font-size: 10px; font-weight: 850; text-transform: uppercase; }
+.recommended-setup strong { font: 700 17px/1 var(--font-display); }
+.recommended-setup small { color: #53625d; font-size: 12px; line-height: 1.35; }
+.recommended-setup .button { min-height: 44px; padding-inline: 12px; }
+.recommended-setup[data-active='true'] .button { color: #167565; background: #e1ece8; border-color: #afc7bf; }
 .session-plan-fields { margin: 0; padding: 16px; display: grid; gap: 12px; border: 1px solid #c8d0cd; border-radius: 5px; background: #f2f5f3; }
 .session-plan-fields > legend { padding: 0 6px; color: #253330; font: 700 14px/1 var(--font-display); text-transform: uppercase; }
 .session-round-fields { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -876,6 +903,8 @@
 .timer-setup-actions .button { min-height: 44px; font-size: 13px; }
 
 @media (max-width: 520px) {
+  .recommended-setup { grid-template-columns: 1fr; }
+  .recommended-setup .button { width: 100%; }
   .session-round-fields { grid-template-columns: 1fr; }
   .timer-blocks-head, .timer-block { grid-template-columns: 46px minmax(58px, 1fr) minmax(66px, 1fr) 44px; gap: 6px; }
   .timer-setup-actions { display: grid; grid-template-columns: 1fr; }

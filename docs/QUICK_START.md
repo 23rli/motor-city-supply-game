@@ -7,15 +7,16 @@
 1. Open the website.
 2. Choose **Facilitate**.
 3. Enter your name.
-4. Choose a resource plan.
+4. Review the preloaded **Recommended default**:
+   - all four models, the Classic 10-round sequence, and standard economics
+   - final round 10 and WIP penalty round 10
+   - 10 minutes for rounds 1-5 and 5 minutes for rounds 6-10
+5. Change the resource plan only when needed.
    - **Original 25-round Team Sequence** uses the exact predetermined v1 dice rolls.
-5. Under **Class plan**, set:
+6. Under **Class plan**, confirm or change:
    - **Final round**
    - **WIP penalty round**
-   - optional **Use a round timer**
-6. If using a timer, check every timing row. Example:
-   - Rounds 1 through 5: 10 minutes
-   - Rounds 6 through 10: 5 minutes
+   - **Use a round timer**
 7. Press **Create session**.
 8. Save the long **Recovery code** somewhere private.
 
@@ -23,8 +24,10 @@
 
 1. Give students the website and six-character join code.
 2. Wait for their names to appear in **Roster**.
-3. Read the **Control** panel once: player count, final round, WIP round, and timer.
-4. Press **Start production**.
+3. Read the public-safe **Control** facts once: player count, final round, and timer.
+4. Open **Private scoring** to verify the WIP penalty round, then collapse it before students
+   can see the admin screen.
+5. Press **Start production**.
 
 ## During the run
 
@@ -37,7 +40,7 @@
 
 ## End and download
 
-1. Check **Score up to round** and **Charge unfinished cars at round**.
+1. Open **Private scoring** and check **Score up to round** and **WIP penalty round**.
 2. Press **End production**, then **Yes, end it**.
 3. In the projector view, press **Charge the unfinished cars** when ready.
 4. Download **Excel workbook**. It includes class setup, scores, and every player's rounds.

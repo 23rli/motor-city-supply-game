@@ -8,7 +8,8 @@
 ## Can I set the WIP penalty round and final round before creating the session?
 
 **Yes.** Choose **Facilitate**, then use **Class plan**. The saved values appear in the lobby's
-**Control** panel before you press **Start production**. They also prefill the end-of-run controls.
+collapsed **Private scoring** section before you press **Start production**. They also prefill the
+end-of-run controls there. Keep that section collapsed whenever students can see the admin screen.
 
 - **Final round**: revenue counts through this round.
 - **WIP penalty round**: unfinished cars are measured at this round.
@@ -17,7 +18,7 @@ The WIP penalty round cannot be later than the final round.
 
 ## Can I customize the timer by round range?
 
-**Yes.** Turn on **Use a round timer** and enter contiguous timing rows. For example:
+**Yes.** The recommended default already uses these contiguous timing rows:
 
 | Rounds | Time per round |
 | --- | ---: |
@@ -26,6 +27,19 @@ The WIP penalty round cannot be later than the final round.
 
 Use **Add timing change** for another range. Use **Restore 10 / 3 min** for 10 minutes in rounds 1-8
 and 3 minutes in later rounds.
+
+## What is the recommended facilitator setup?
+
+The Facilitate screen opens with a clearly labeled **Recommended default**: all four models,
+Classic 10-round sequence, standard economics, final and WIP rounds at 10, and timers of 10
+minutes for rounds 1-5 and 5 minutes for rounds 6-10. It is a convenience preset based on the
+professor's example, not a gameplay requirement. Use **Restore** to return to it.
+
+## Is there an optimal factory route?
+
+There is one legal production route: **Planning → Manufacturing → Assembly → Quality → Paint →
+Done**. The app enforces it. The strategic choices are lane priority, when to allocate, and when
+to convert resources; there is no single optimal decision sequence for every resource plan.
 
 ## What happens when time reaches zero?
 

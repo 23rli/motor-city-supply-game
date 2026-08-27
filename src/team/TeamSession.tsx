@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Clipboard,
   Factory,
-  Flag,
   KeyRound,
   Minus,
   MonitorPlay,
@@ -21,6 +20,7 @@ import { CohortBoard } from '../components/CohortBoard'
 import { Modal } from '../components/Modal'
 import { PlayerRoundHistory } from '../components/PlayerRoundHistory'
 import { PresenterView } from '../components/PresenterView'
+import { PrivateScoringPanel } from '../components/PrivateScoringPanel'
 import { CAR_MODELS } from '../game/types'
 import { describeRoundTimer } from '../game/timer'
 import { ApiClientError, teamApi } from './api'
@@ -499,81 +499,26 @@ export function TeamSession({
                   <div><dt>Car models</dt><dd>{snapshot.game.config.enabledModels.length}</dd></div>
                   <div><dt>Players</dt><dd>{snapshot.roster.filter((member) => member.role === 'player').length}</dd></div>
                   <div><dt>Final round</dt><dd>{snapshot.game.endRound ?? '—'}</dd></div>
-                  <div><dt>WIP round</dt><dd>{snapshot.game.penaltyRound ?? 'Hidden'}</dd></div>
                   <div className="session-timer-plan"><dt>Round timer</dt><dd>{describeRoundTimer(snapshot.game.config.timer)}</dd></div>
                   <div><dt>Elapsed</dt><dd className="elapsed-clock">{formatElapsedTime(snapshot.game.startedAt, snapshot.game.endedAt, clockTime)}</dd></div>
                 </dl>
+                <PrivateScoringPanel
+                  status={snapshot.game.status}
+                  plannedPenaltyRound={snapshot.game.penaltyRound}
+                  endRound={endRound}
+                  penaltyRound={penaltyRound}
+                  busy={busy}
+                  ending={ending}
+                  onEndRoundChange={setEndRound}
+                  onPenaltyRoundChange={setPenaltyRound}
+                  onRequestEnd={() => setEnding(true)}
+                  onCancelEnd={() => setEnding(false)}
+                  onConfirmEnd={() => {
+                    setEnding(false)
+                    void runLifecycle('end')
+                  }}
+                />
                 {snapshot.game.status === 'waiting' && <button className="button button-primary control-action" type="button" disabled={busy} onClick={() => void runLifecycle('start')}><Play size={17} fill="currentColor" /> Start production</button>}
-                {snapshot.game.status === 'active' && (
-                  <>
-                    <div className="end-settings">
-                      <label>
-                        <span>Score up to round</span>
-                        <em>Revenue counts through this round</em>
-                        <input
-                          type="number"
-                          min="1"
-                          value={endRound}
-                          onChange={(event) => setEndRound(Math.max(1, Number(event.target.value)))}
-                        />
-                      </label>
-                      <label>
-                        <span>Charge unfinished cars at round</span>
-                        <em>Cars still on the floor cost money</em>
-                        <input
-                          type="number"
-                          min="1"
-                          value={penaltyRound}
-                          onChange={(event) => setPenaltyRound(Math.max(1, Number(event.target.value)))}
-                        />
-                      </label>
-                    </div>
-
-                    {penaltyRound > endRound && (
-                      <p className="form-error" role="alert">
-                        The penalty round cannot be later than the round you score up to.
-                      </p>
-                    )}
-
-                    {ending ? (
-                      <div className="end-confirm">
-                        <p>
-                          End the run for everyone? Scores lock at round {endRound} and players
-                          can no longer move cars. You can still download the results afterwards.
-                        </p>
-                        <div className="end-confirm-actions">
-                          <button
-                            className="button button-danger control-action"
-                            type="button"
-                            disabled={busy || penaltyRound > endRound}
-                            onClick={() => {
-                              setEnding(false)
-                              void runLifecycle('end')
-                            }}
-                          >
-                            <Flag size={17} aria-hidden="true" /> Yes, end it
-                          </button>
-                          <button
-                            className="button button-secondary control-action"
-                            type="button"
-                            onClick={() => setEnding(false)}
-                          >
-                            Keep playing
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        className="button button-danger control-action"
-                        type="button"
-                        disabled={busy || penaltyRound > endRound}
-                        onClick={() => setEnding(true)}
-                      >
-                        <Flag size={17} aria-hidden="true" /> End production
-                      </button>
-                    )}
-                  </>
-                )}
                 {snapshot.game.status === 'finished' && <div className="finished-state"><Check size={18} /><span>Final report locked</span></div>}
               </>
             ) : (

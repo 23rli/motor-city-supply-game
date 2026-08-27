@@ -2,3 +2,4 @@
 *.sh text eol=lf
 deploy/Caddyfile text eol=lf
 deploy/motor-city.service text eol=lf
+docs/Motor-City-Facilitator-Guide.manifest.json text eol=lf

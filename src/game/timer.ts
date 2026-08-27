@@ -7,6 +7,16 @@ import type {
 export const defaultEndRound = (resourcePlan: ResourcePlan) =>
   resourcePlan === 'evan' ? 25 : 10
 
+export function recommendedClassTimerConfig(): RoundTimerConfig {
+  return {
+    enabled: true,
+    segments: [
+      { startRound: 1, endRound: 5, durationSeconds: 600 },
+      { startRound: 6, endRound: 10, durationSeconds: 300 },
+    ],
+  }
+}
+
 export function originalTimerConfig(
   endRound: number,
   enabled = false,

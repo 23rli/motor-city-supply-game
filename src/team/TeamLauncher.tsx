@@ -4,6 +4,7 @@ import {
   Factory,
   LogOut,
   Play,
+  RotateCcw,
   RotateCw,
   Users,
 } from 'lucide-react'
@@ -15,8 +16,14 @@ import { RunSetupFields } from '../components/RunSetupFields'
 import { SessionPlanFields } from '../components/SessionPlanFields'
 import { DEFAULT_REVENUE, DEFAULT_WIP_PENALTY } from '../game/engine'
 import { CAR_MODELS, type CarModel, type ResourcePlan } from '../game/types'
-import { defaultEndRound, originalTimerConfig, validateTimerCoverage } from '../game/timer'
+import {
+  defaultEndRound,
+  originalTimerConfig,
+  recommendedClassTimerConfig,
+  validateTimerCoverage,
+} from '../game/timer'
 import { ApiClientError, teamApi } from './api'
+import { isRecommendedClassSetup } from './recommended-setup'
 import type { TeamCredentials } from './types'
 
 interface TeamLauncherProps {
@@ -26,6 +33,38 @@ interface TeamLauncherProps {
   onTeam: (credentials: TeamCredentials) => void
   onResume: () => void
   onForget: () => void
+}
+
+export function RecommendedSetupCard({
+  applied,
+  onRestore,
+}: {
+  applied: boolean
+  onRestore: () => void
+}) {
+  return (
+    <div className="recommended-setup" data-active={applied}>
+      <div>
+        <span>Recommended default</span>
+        <strong>10-round class</strong>
+        <small>
+          All models · Classic sequence · standard economics · final/WIP at 10 · timer 10 min R1-5, 5 min R6-10
+        </small>
+        <span className="sr-only" role="status" aria-live="polite">
+          {applied ? 'Recommended setup applied.' : 'Setup customized.'}
+        </span>
+      </div>
+      <button
+        className="button button-secondary"
+        type="button"
+        disabled={applied}
+        onClick={onRestore}
+      >
+        <RotateCcw size={15} aria-hidden="true" />
+        {applied ? 'Applied' : 'Restore'}
+      </button>
+    </div>
+  )
 }
 
 export function TeamLauncher({
@@ -49,7 +88,7 @@ export function TeamLauncher({
   const [notes, setNotes] = useState('')
   const [penaltyRound, setPenaltyRound] = useState(10)
   const [endRound, setEndRound] = useState(10)
-  const [timer, setTimer] = useState(() => originalTimerConfig(10))
+  const [timer, setTimer] = useState(recommendedClassTimerConfig)
   const [reuseSetup, setReuseSetup] = useState(false)
   const [previousCode, setPreviousCode] = useState('')
   const [previousRecoveryCode, setPreviousRecoveryCode] = useState('')
@@ -58,6 +97,25 @@ export function TeamLauncher({
   const planError = penaltyRound > endRound
     ? 'The WIP round cannot be after the final round.'
     : validateTimerCoverage(timer, endRound)
+  const recommendedSetupApplied = isRecommendedClassSetup({
+    models,
+    resourcePlan,
+    revenue,
+    wipPenalty,
+    endRound,
+    penaltyRound,
+    timer,
+  })
+
+  const restoreRecommendedSetup = () => {
+    setModels([...CAR_MODELS])
+    setResourcePlan('classic')
+    setRevenue({ ...DEFAULT_REVENUE })
+    setWipPenalty({ ...DEFAULT_WIP_PENALTY })
+    setEndRound(10)
+    setPenaltyRound(10)
+    setTimer(recommendedClassTimerConfig())
+  }
 
   const changeResourcePlan = (plan: ResourcePlan) => {
     const previousDefault = defaultEndRound(resourcePlan)
@@ -198,16 +256,22 @@ export function TeamLauncher({
                     <label><span>Previous facilitator recovery code</span><input value={previousRecoveryCode} onChange={(event) => setPreviousRecoveryCode(event.target.value)} maxLength={128} required /></label>
                   </div>
                 ) : (
-                  <RunSetupFields
-                    models={models}
-                    resourcePlan={resourcePlan}
-                    revenue={revenue}
-                    wipPenalty={wipPenalty}
-                    onModelsChange={setModels}
-                    onResourcePlanChange={changeResourcePlan}
-                    onRevenueChange={setRevenue}
-                    onWipPenaltyChange={setWipPenalty}
-                  />
+                  <>
+                    <RecommendedSetupCard
+                      applied={recommendedSetupApplied}
+                      onRestore={restoreRecommendedSetup}
+                    />
+                    <RunSetupFields
+                      models={models}
+                      resourcePlan={resourcePlan}
+                      revenue={revenue}
+                      wipPenalty={wipPenalty}
+                      onModelsChange={setModels}
+                      onResourcePlanChange={changeResourcePlan}
+                      onRevenueChange={setRevenue}
+                      onWipPenaltyChange={setWipPenalty}
+                    />
+                  </>
                 )}
                 {!reuseSetup && (
                   <SessionPlanFields

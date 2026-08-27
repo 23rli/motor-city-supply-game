@@ -18,10 +18,12 @@
 ## Important facts
 
 - **Original 25-round Team Sequence** is the exact predetermined v1 sequence.
+- Facilitate opens with the professor's recommended 10-round, 10/5-minute preset.
 - The timer is optional and is configured before session creation.
 - Each player has an independent per-round countdown.
 - At timeout, materials allocate automatically and the player confirms the next round.
 - WIP rates and monetary penalties stay hidden from players until the run ends.
+- The admin screen keeps the WIP round and end controls in collapsed **Private scoring**.
 - The facilitator recovery code is required to recover or reuse a facilitator setup.
 
 ## Documentation maintenance

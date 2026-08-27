@@ -26,13 +26,16 @@ and one on your own screen. The section [Two screens](#two-screens) explains how
 1. Go to the address above.
 2. Under **Team session**, choose **Facilitate**.
 3. Fill in **Facilitator name**.
-4. Choose the active models and resource plan:
+4. Review the preloaded **Recommended default**. It uses all four models, the Classic 10-round
+  sequence, standard economics, final/WIP round 10, and timers of 10 minutes for rounds 1-5
+  and 5 minutes for rounds 6-10. Press **Restore** later if you want to return to it.
+5. Choose a different resource plan only when needed:
   - **Classic 10-round sequence** — the original short demonstration.
   - **Original 25-round Team Sequence** — the exact predetermined v1 dice rolls, in order.
   - **Random 100-round sequence** — new values for this run.
-5. Adjust per-model revenue and WIP rates only if this class uses different economics.
-6. Under **Class plan**, set the final round, WIP penalty round, and optional timer.
-7. Add notes if useful, then press **Create session**.
+6. Adjust per-model revenue and WIP rates only if this class uses different economics.
+7. Under **Class plan**, confirm or change the final round, WIP penalty round, and timer.
+8. Add notes if useful, then press **Create session**.
 
 ### Custom timer example
 
@@ -87,8 +90,10 @@ Names appear on your roster as students arrive. Nobody can move anything yet.
 
 When enough people have joined, press **Start production**.
 
-Before pressing it, read the **Control** panel once. It shows the final round, WIP round, timer
-plan, and player count. This is the last quick check that the class plan is correct.
+Before pressing it, read the public-safe **Control** facts once. They show the final round, timer
+plan, and player count. Open **Private scoring** to verify the WIP penalty round, then collapse it
+before students can see the admin screen. This is the last quick check that the class plan is
+correct.
 
 Every student's factory opens at the same moment. From here they play their own factory; they
 do not share a board.
@@ -101,18 +106,19 @@ Your screen shows:
 
 - **Leaderboard** — live standings, ordered by revenue
 - **Factory floor** — a card per student, showing where their cars are sitting
-- **Control** — saved scoring rounds, timer plan, elapsed session time, and the end control
+- **Control** — public-safe session facts plus a collapsed **Private scoring** section
 
 While the game is running, student boards and the projector do not reveal WIP rates, monetary
 penalties, or projected scores. Your facilitator setup and scoring controls retain those values
 so you can administer the run. See [The reveal](#the-reveal).
 
-The scoring settings are filled from the class plan. You may still adjust them before ending:
+The scoring settings are filled from the class plan. Open **Private scoring** to review or adjust
+them before ending, and collapse it again if students can see your admin screen:
 
 | Setting | Meaning |
 | --- | --- |
 | **Score up to round** | Revenue counts through this round. Later rounds are ignored. |
-| **Charge unfinished cars at round** | Cars still on the floor at this round cost money. |
+| **WIP penalty round** | Unfinished cars are measured at this round. |
 
 The penalty round cannot be later than the round you score up to; the screen will tell you if
 you try.
