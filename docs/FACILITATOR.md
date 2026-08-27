@@ -127,14 +127,18 @@ you try.
 
 ### Exact v1 optimal result
 
-When the exact recommended setup is unchanged, **Private scoring** shows the verified optimal
-result: **$81.00**. That result ships 28 cars — 24 blue, 2 green, and 2 red — for $81.00 revenue
-with no WIP penalty at round 25. It was solved against the exact 25-round resource sequence and
-replayed through the same movement, allocation, conversion, paint, and scoring rules used by
-the game.
+When the exact recommended setup is unchanged, **Factory floor** includes an **Optimal Run**
+reference student. It is not a real participant and does not affect rankings, class statistics,
+or exports. Its verified result is **$81.00**: 28 cars shipped — 24 blue, 2 green, and 2 red —
+with no WIP penalty at round 25.
 
-The benchmark disappears if models, economics, resource sequence, final round, or WIP round are
-changed. It is a result benchmark, not a single required click-by-click route.
+Press **View round history** on that card to inspect it exactly like a student: newest rounds
+first, with every station's model counts, WIP, shipped cars, revenue, issued resources,
+exchanges, and unused resources. The simulation was replayed through the same movement,
+allocation, conversion, paint, and scoring rules used by the game.
+
+The reference student disappears if models, economics, resource sequence, final round, or WIP
+round are changed. Other routes may reach the same optimal result.
 
 ### What students see when time runs out
 

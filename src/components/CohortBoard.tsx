@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Download, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
+import { AlertTriangle, Check, Download, History, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
 import { RESOURCES } from '../game/types'
 import {
   STALL_AFTER_MS,
@@ -8,7 +8,7 @@ import {
   summarizeCohort,
 } from '../team/cohort'
 import { buildSessionWorkbook } from '../team/sessionWorkbook'
-import type { TeamExport, TeamPlayerReport } from '../team/types'
+import type { TeamExport, TeamExportPlayer, TeamPlayerReport } from '../team/types'
 
 const totalOf = (values: Record<string, number>) =>
   Object.values(values).reduce((sum, value) => sum + value, 0)
@@ -23,6 +23,44 @@ interface CohortBoardProps {
   onExport: () => Promise<TeamExport>
   readmitted: { name: string; recoveryCode: string } | null
   onDismissReadmit: () => void
+  referencePlayer: TeamExportPlayer | null
+  onViewReference: (player: TeamExportPlayer) => void
+}
+
+function OptimalRunCard({
+  player,
+  onView,
+}: {
+  player: TeamExportPlayer
+  onView: (player: TeamExportPlayer) => void
+}) {
+  return (
+    <article className="cohort-card cohort-reference">
+      <header>
+        <div>
+          <strong>{player.name}</strong>
+          <small className="cohort-reference-label">Verified v1 simulation</small>
+        </div>
+        <span className="cohort-round">R{player.currentRound}</span>
+      </header>
+      <dl>
+        <div><dt>Revenue</dt><dd>${player.revenue.toFixed(2)}</dd></div>
+        <div><dt>Shipped</dt><dd>{player.throughput}</dd></div>
+        <div><dt>Score</dt><dd>${player.projectedScore.toFixed(2)}</dd></div>
+      </dl>
+      <p className="cohort-signals">
+        <span><Sparkles size={12} aria-hidden="true" /> Exact 25-round replay</span>
+        <span><Package size={12} aria-hidden="true" /> {totalOf(player.wip)} final WIP</span>
+      </p>
+      <button
+        className="button button-secondary cohort-action"
+        type="button"
+        onClick={() => onView(player)}
+      >
+        <History size={14} aria-hidden="true" /> View round history
+      </button>
+    </article>
+  )
 }
 
 export function CohortBoard({
@@ -35,6 +73,8 @@ export function CohortBoard({
   onExport,
   readmitted,
   onDismissReadmit,
+  referencePlayer,
+  onViewReference,
 }: CohortBoardProps) {
   const [now, setNow] = useState(() => Date.now())
   const [confirming, setConfirming] = useState<string | null>(null)
@@ -103,6 +143,11 @@ export function CohortBoard({
         <div className="panel-heading">
           <div><p>Live cohort</p><h2 id="cohort-title">Factory floor</h2></div>
         </div>
+        {referencePlayer && (
+          <div className="cohort-grid">
+            <OptimalRunCard player={referencePlayer} onView={onViewReference} />
+          </div>
+        )}
         <p className="cohort-empty">Player boards appear here once the session starts.</p>
       </section>
     )
@@ -172,6 +217,9 @@ export function CohortBoard({
       </details>
 
       <div className="cohort-grid">
+        {referencePlayer && (
+          <OptimalRunCard player={referencePlayer} onView={onViewReference} />
+        )}
         {ordered.map((player) => {
           const quiet = referenceTime - Date.parse(player.lastSeenAt) > STALL_AFTER_MS
           const wip = totalOf(player.wip)

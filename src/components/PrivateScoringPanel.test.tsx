@@ -1,6 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
-import { EVAN_OPTIMAL_BENCHMARK } from '../game/evan-benchmark'
 import { PrivateScoringPanel } from './PrivateScoringPanel'
 
 const renderPanel = (status: 'waiting' | 'active' | 'finished') =>
@@ -12,7 +11,6 @@ const renderPanel = (status: 'waiting' | 'active' | 'finished') =>
       penaltyRound={10}
       busy={false}
       ending={false}
-      benchmark={EVAN_OPTIMAL_BENCHMARK}
       onEndRoundChange={vi.fn()}
       onPenaltyRoundChange={vi.fn()}
       onRequestEnd={vi.fn()}
@@ -40,12 +38,4 @@ describe('private scoring panel', () => {
     expect(markup.indexOf('End production')).toBeGreaterThan(summaryEnd)
   })
 
-  it('keeps the exact v1 optimal result private too', () => {
-    const markup = renderPanel('waiting')
-    const summaryEnd = markup.indexOf('</summary>')
-
-    expect(markup.indexOf('Exact v1 optimal result')).toBeGreaterThan(summaryEnd)
-    expect(markup.indexOf('$81.00')).toBeGreaterThan(summaryEnd)
-    expect(markup).toContain('28 cars shipped')
-  })
 })

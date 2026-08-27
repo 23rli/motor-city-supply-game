@@ -43,10 +43,11 @@ Done**. The app enforces it. Lane priority, allocation timing, and resource conv
 strategic choices.
 
 For the exact recommended v1 setup, the verified optimal result is **$81.00**: 28 shipped cars
-(24 blue, 2 green, and 2 red), $81.00 revenue, and no WIP penalty at round 25. **Private scoring**
-shows this benchmark only while the exact sequence, models, economics, and scoring rounds still
-match. It is an optimal result; more than one legal click-by-click route may attain the same
-result.
+(24 blue, 2 green, and 2 red), $81.00 revenue, and no WIP penalty at round 25. **Factory floor**
+shows it as a non-ranked **Optimal Run** reference student only while the exact sequence, models,
+economics, and scoring rounds still match. Press **View round history** to browse all 25 rounds
+through the same station/resource history used for real students. More than one legal route may
+attain the same optimal result.
 
 ## What happens when time reaches zero?
 

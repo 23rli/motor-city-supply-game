@@ -26,13 +26,14 @@
 2. Wait for their names to appear in **Roster**.
 3. Read the public-safe **Control** facts once: player count, final round, and timer.
 4. Open **Private scoring** to verify the WIP penalty round, then collapse it before students
-   can see the admin screen. For the unchanged default, it also shows the verified optimal
-   result: **$81.00** from 28 shipped cars with no WIP penalty.
+   can see the admin screen.
 5. Press **Start production**.
 
 ## During the run
 
 - Press **Present** for the projector view.
+- In **Factory floor**, **Optimal Run** is a non-ranked reference student for the unchanged
+   default. Press **View round history** to browse its 25-round simulation.
 - The leaderboard uses revenue until the final reveal.
 - If a timer reaches zero, materials allocate automatically. The student presses
   **Advance round** in the message.

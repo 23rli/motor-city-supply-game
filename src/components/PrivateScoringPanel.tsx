@@ -1,5 +1,4 @@
 import { Flag, LockKeyhole } from 'lucide-react'
-import type { EvanOptimalBenchmark } from '../game/evan-benchmark'
 import type { TeamStatus } from '../team/types'
 
 interface PrivateScoringPanelProps {
@@ -9,7 +8,6 @@ interface PrivateScoringPanelProps {
   penaltyRound: number
   busy: boolean
   ending: boolean
-  benchmark: EvanOptimalBenchmark | null
   onEndRoundChange: (round: number) => void
   onPenaltyRoundChange: (round: number) => void
   onRequestEnd: () => void
@@ -24,7 +22,6 @@ export function PrivateScoringPanel({
   penaltyRound,
   busy,
   ending,
-  benchmark,
   onEndRoundChange,
   onPenaltyRoundChange,
   onRequestEnd,
@@ -46,19 +43,6 @@ export function PrivateScoringPanel({
         <p className="private-scoring-note">
           Collapse this section before students can see the admin screen.
         </p>
-        {benchmark && (
-          <section className="private-scoring-benchmark" aria-label="Exact v1 optimal result">
-            <span>Exact v1 optimal result</span>
-            <strong>${benchmark.score.toFixed(2)}</strong>
-            <p>
-              {benchmark.throughput} cars shipped: {benchmark.completed.blue} blue,
-              {' '}{benchmark.completed.green} green, and {benchmark.completed.red} red.
-            </p>
-            <small>
-              ${benchmark.revenue.toFixed(2)} revenue · ${benchmark.wipPenalty.toFixed(2)} WIP penalty
-            </small>
-          </section>
-        )}
         {status !== 'active' && (
           <dl className="private-scoring-values">
             <div><dt>WIP penalty round</dt><dd>{plannedPenaltyRound ?? 'Not set'}</dd></div>

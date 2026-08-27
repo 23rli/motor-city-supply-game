@@ -30,6 +30,7 @@ import { podium, rankPlayers, rankSnapshot, sortLeaderboard, type SortDirection,
 import { GAME_STAT_ROWS, summarizeGameStats } from './gameStats'
 import { commandPreemptedByTimeout } from './roundTimer'
 import { shouldApplySessionSnapshot } from './sessionSnapshot'
+import { EVAN_OPTIMAL_PLAYER } from './evan-optimal-player.generated'
 import type {
   PlayerCommand,
   TeamReport,
@@ -89,6 +90,13 @@ export function TeamSession({
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const finished = snapshot?.game.status === 'finished'
+  const optimalRun = snapshot && getEvanOptimalBenchmark(
+    snapshot.game.config,
+    snapshot.game.status === 'active' ? endRound : snapshot.game.endRound,
+    snapshot.game.status === 'active' ? penaltyRound : snapshot.game.penaltyRound,
+  )
+    ? EVAN_OPTIMAL_PLAYER
+    : null
   // Until the run ends the WIP penalty is not applied anywhere, so the reveal still lands.
   const leaderboard = useMemo(
     () => rankPlayers(report?.players ?? [], previousRanks.current, finished ? 'score' : 'revenue'),
@@ -363,6 +371,13 @@ export function TeamSession({
     setHistoryName('')
   }
 
+  const openReferenceHistory = (player: TeamExportPlayer) => {
+    historyRequest.current += 1
+    setHistoryLoading(false)
+    setHistoryName(player.name)
+    setHistoryPlayer(player)
+  }
+
   const removePlayer = async (player: { id: string; name: string }) => {
     setBusy(true)
     setError(null)
@@ -510,11 +525,6 @@ export function TeamSession({
                   penaltyRound={penaltyRound}
                   busy={busy}
                   ending={ending}
-                  benchmark={getEvanOptimalBenchmark(
-                    snapshot.game.config,
-                    snapshot.game.status === 'active' ? endRound : snapshot.game.endRound,
-                    snapshot.game.status === 'active' ? penaltyRound : snapshot.game.penaltyRound,
-                  )}
                   onEndRoundChange={setEndRound}
                   onPenaltyRoundChange={setPenaltyRound}
                   onRequestEnd={() => setEnding(true)}
@@ -544,6 +554,8 @@ export function TeamSession({
             onExport={() => teamApi.getExport(snapshot.game.id)}
             readmitted={readmitted}
             onDismissReadmit={() => setReadmitted(null)}
+            referencePlayer={optimalRun}
+            onViewReference={openReferenceHistory}
           />
         )}
 
