@@ -10,11 +10,11 @@ describe('Optimal Run reference student', () => {
     expect(EVAN_OPTIMAL_PLAYER).toMatchObject({
       name: 'Optimal Run',
       scoredThroughRound: 25,
-      revenue: 81,
+      revenue: 82,
       projectedPenalty: 0,
-      projectedScore: 81,
+      projectedScore: 82,
       throughput: 28,
-      completed: { blue: 24, green: 2, red: 2, yellow: 0 },
+      completed: { blue: 24, green: 0, red: 4, yellow: 0 },
       wip: { blue: 0, green: 0, red: 0, yellow: 0 },
     })
     expect(EVAN_OPTIMAL_PLAYER.history).toHaveLength(25)
@@ -32,7 +32,7 @@ describe('Optimal Run reference student', () => {
     )
 
     expect(markup).toContain('Round 25')
-    expect(markup).toContain('$81.00')
+    expect(markup).toContain('$82.00')
     expect(markup).toContain('Page 1 of 3 / 25 rounds')
     expect(markup).toContain('Issued R/Y/B')
     expect(markup).toContain('Exchanged R/Y/B')
@@ -50,14 +50,68 @@ describe('Optimal Run reference student', () => {
         onExport={vi.fn()}
         readmitted={null}
         onDismissReadmit={vi.fn()}
-        referencePlayer={EVAN_OPTIMAL_PLAYER}
+        optimalRun={{
+          id: 'exact-evan-cache',
+          status: 'optimal',
+          player: EVAN_OPTIMAL_PLAYER,
+        }}
+        onCalculateOptimal={vi.fn()}
         onViewReference={vi.fn()}
       />,
     )
 
     expect(markup).toContain('Optimal Run')
-    expect(markup).toContain('Verified v1 simulation')
+    expect(markup).toContain('Proven optimal simulation')
     expect(markup).toContain('View round history')
-    expect(markup).toContain('$81.00')
+    expect(markup).toContain('$82.00')
+  })
+
+  it('offers to calculate a reference for a setup without a cached run', () => {
+    const markup = renderToStaticMarkup(
+      <CohortBoard
+        players={[]}
+        code="ABC234"
+        finished={false}
+        endedAt={null}
+        onReadmit={vi.fn()}
+        onRemove={vi.fn()}
+        onExport={vi.fn()}
+        readmitted={null}
+        onDismissReadmit={vi.fn()}
+        optimalRun={null}
+        onCalculateOptimal={vi.fn()}
+        onViewReference={vi.fn()}
+      />,
+    )
+
+    expect(markup).toContain('Calculate reference run')
+    expect(markup).toContain('this exact schedule, economics, models, and scoring rounds')
+  })
+
+  it('labels a time-limited result as not proven optimal', () => {
+    const markup = renderToStaticMarkup(
+      <CohortBoard
+        players={[]}
+        code="ABC234"
+        finished={false}
+        endedAt={null}
+        onReadmit={vi.fn()}
+        onRemove={vi.fn()}
+        onExport={vi.fn()}
+        readmitted={null}
+        onDismissReadmit={vi.fn()}
+        optimalRun={{
+          id: 'best-found',
+          status: 'feasible',
+          player: { ...EVAN_OPTIMAL_PLAYER, name: 'Best Run Found' },
+        }}
+        onCalculateOptimal={vi.fn()}
+        onViewReference={vi.fn()}
+      />,
+    )
+
+    expect(markup).toContain('Best Run Found')
+    expect(markup).toContain('Best run found · not proven optimal')
+    expect(markup).not.toContain('Proven optimal simulation')
   })
 })

@@ -4,7 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { FastifyInstance } from 'fastify'
+import type { OptimalRunJob } from '../src/team/types'
 import { buildApp } from './app'
+import type { OptimizationService } from './optimizer-jobs'
+import type { OptimizationInput } from './session-store-core'
 import { SESSION_TTL_MS } from './session-security'
 import { InMemorySessionStore } from './session-store-core'
 
@@ -55,6 +58,31 @@ class PausedCleanupStore extends InMemorySessionStore {
 
 const auth = (cookie: string) => ({ cookie })
 
+class FakeOptimizer implements OptimizationService {
+  readonly started: Array<{ gameId: string; input: OptimizationInput }> = []
+  readonly closed = vi.fn(async () => undefined)
+  job: OptimalRunJob = {
+    id: '11111111-1111-4111-8111-111111111111',
+    status: 'queued',
+  }
+
+  start(gameId: string, input: OptimizationInput) {
+    this.started.push({ gameId, input })
+    return this.job
+  }
+
+  get(gameId: string, jobId: string) {
+    if (gameId !== this.started[0]?.gameId || jobId !== this.job.id) {
+      throw new Error('OPTIMIZATION_JOB_NOT_FOUND')
+    }
+    return this.job
+  }
+
+  close() {
+    return this.closed()
+  }
+}
+
 const withCookie = (response: Awaited<ReturnType<FastifyInstance['inject']>>) => {
   const setCookie = response.headers['set-cookie']
   const rawCookie = Array.isArray(setCookie) ? setCookie[0] : setCookie
@@ -97,6 +125,185 @@ const joinSession = async (
 }
 
 describe('multiplayer API', () => {
+  it('keeps optimal-run jobs facilitator-only and validates their horizon', async () => {
+    const optimizer = new FakeOptimizer()
+    const app = buildApp(new InMemorySessionStore(), { optimizer })
+    apps.push(app)
+    const created = withCookie(await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Morgan',
+        enabledModels: ['blue', 'green', 'red', 'yellow'],
+        resourcePlan: 'classic',
+        notes: 'Private section note',
+        penaltyRound: 10,
+        endRound: 10,
+        timer: {
+          enabled: true,
+          segments: [{ startRound: 1, endRound: 10, durationSeconds: 600 }],
+        },
+      },
+    }))
+    const player = await joinSession(app, created.game.code, 'Ada')
+    const path = `/api/games/${created.game.id}/optimization`
+
+    const invalid = await app.inject({
+      method: 'POST',
+      url: path,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 25, endRound: 101 },
+    })
+    expect(invalid.statusCode).toBe(400)
+    expect(optimizer.started).toHaveLength(0)
+
+    const forbidden = await app.inject({
+      method: 'POST',
+      url: path,
+      headers: auth(player.cookie),
+      payload: { penaltyRound: 10, endRound: 10 },
+    })
+    expect(forbidden.statusCode).toBe(403)
+    expect(forbidden.json().error.code).toBe('FACILITATOR_REQUIRED')
+    expect(optimizer.started).toHaveLength(0)
+
+    const started = await app.inject({
+      method: 'POST',
+      url: path,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 10, endRound: 10 },
+    })
+    expect(started.statusCode).toBe(202)
+    expect(started.json()).toEqual(optimizer.job)
+    expect(optimizer.started).toHaveLength(1)
+    expect(optimizer.started[0]).toMatchObject({
+      gameId: created.game.id,
+      input: {
+        penaltyRound: 10,
+        endRound: 10,
+        config: {
+          resourcePlan: 'classic',
+          enabledModels: ['blue', 'green', 'red', 'yellow'],
+          notes: '',
+          timer: { enabled: false, segments: [] },
+        },
+      },
+    })
+
+    const playerPoll = await app.inject({
+      method: 'GET',
+      url: `${path}/${optimizer.job.id}`,
+      headers: auth(player.cookie),
+    })
+    expect(playerPoll.statusCode).toBe(403)
+
+    optimizer.job = { ...optimizer.job, status: 'optimal', solveTimeMs: 123 }
+    const completed = await app.inject({
+      method: 'GET',
+      url: `${path}/${optimizer.job.id}`,
+      headers: auth(created.cookie),
+    })
+    expect(completed.statusCode).toBe(200)
+    expect(completed.json()).toMatchObject({ status: 'optimal', solveTimeMs: 123 })
+
+    const missing = await app.inject({
+      method: 'GET',
+      url: `${path}/22222222-2222-4222-8222-222222222222`,
+      headers: auth(created.cookie),
+    })
+    expect(missing.statusCode).toBe(404)
+    expect(missing.json().error.code).toBe('OPTIMIZATION_JOB_NOT_FOUND')
+  })
+
+  it('rate limits optimization starts independently by facilitator session', async () => {
+    const optimizer = new FakeOptimizer()
+    const app = buildApp(new InMemorySessionStore(), { optimizer })
+    apps.push(app)
+    const created = await createSession(app)
+    const path = `/api/games/${created.game.id}/optimization`
+
+    for (let request = 0; request < 4; request += 1) {
+      const response = await app.inject({
+        method: 'POST',
+        url: path,
+        headers: auth(created.cookie),
+        payload: { penaltyRound: 10, endRound: 10 },
+      })
+      expect(response.statusCode).toBe(202)
+    }
+    const limited = await app.inject({
+      method: 'POST',
+      url: path,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 10, endRound: 10 },
+    })
+    expect(limited.statusCode).toBe(429)
+    expect(limited.json().error.code).toBe('RATE_LIMITED')
+  })
+
+  it('returns a retriable response when the optimization queue is full', async () => {
+    const optimizer = new FakeOptimizer()
+    optimizer.start = () => { throw new Error('OPTIMIZATION_QUEUE_FULL') }
+    const app = buildApp(new InMemorySessionStore(), { optimizer })
+    apps.push(app)
+    const created = await createSession(app)
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/games/${created.game.id}/optimization`,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 10, endRound: 10 },
+    })
+
+    expect(response.statusCode).toBe(503)
+    expect(response.json().error).toEqual({
+      code: 'OPTIMIZATION_BUSY',
+      message: 'The optimizer is busy with other classes. Try again in a few minutes.',
+    })
+  })
+
+  it('calculates a custom session through the real background worker', async () => {
+    const app = makeApp()
+    const created = withCookie(await app.inject({
+      method: 'POST',
+      url: '/api/games',
+      payload: {
+        facilitatorName: 'Morgan',
+        enabledModels: ['green'],
+        resourcePlan: 'classic',
+        penaltyRound: 6,
+        endRound: 6,
+      },
+    }))
+    const path = `/api/games/${created.game.id}/optimization`
+    const started = await app.inject({
+      method: 'POST',
+      url: path,
+      headers: auth(created.cookie),
+      payload: { penaltyRound: 6, endRound: 6 },
+    })
+    expect(started.statusCode).toBe(202)
+    const jobId = started.json().id as string
+
+    let completed = started.json()
+    await vi.waitFor(async () => {
+      const response = await app.inject({
+        method: 'GET',
+        url: `${path}/${jobId}`,
+        headers: auth(created.cookie),
+      })
+      expect(response.statusCode).toBe(200)
+      completed = response.json()
+      expect(completed.status).toBe('optimal')
+    }, { timeout: 15_000, interval: 100 })
+
+    expect(completed.player).toMatchObject({
+      name: 'Optimal Run',
+      scoredThroughRound: 6,
+    })
+    expect(completed.player.history).toHaveLength(6)
+  }, 20_000)
+
   it('fails health checks when the persistence layer is unavailable', async () => {
     class UnhealthyStore extends InMemorySessionStore {
       override async healthCheck() {

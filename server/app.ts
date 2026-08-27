@@ -10,6 +10,8 @@ import {
   createSessionSchema,
   endSessionSchema,
   gameParamsSchema,
+  optimizationParamsSchema,
+  optimizationRequestSchema,
   participantParamsSchema,
   joinSessionSchema,
   playerCommandSchema,
@@ -21,6 +23,10 @@ import {
   type SessionStore,
 } from './session-store-core'
 import { hashSecret, SESSION_TTL_MS } from './session-security'
+import {
+  OptimizationJobs,
+  type OptimizationService,
+} from './optimizer-jobs'
 
 const SESSION_COOKIE = 'motor_city_session'
 
@@ -31,6 +37,7 @@ interface AppOptions {
   staticRoot?: string
   trustProxy?: boolean | string
   logger?: boolean
+  optimizer?: OptimizationService
 }
 
 const isHttpClientError = (
@@ -109,6 +116,14 @@ const sessionEntryRouteConfig = {
   },
 }
 
+const optimizationRouteConfig = {
+  rateLimit: {
+    max: 4,
+    timeWindow: '1 minute',
+    keyGenerator: rateLimitKey,
+  },
+}
+
 export function buildApp(
   store: SessionStore = new InMemorySessionStore(),
   options: AppOptions = {},
@@ -118,6 +133,7 @@ export function buildApp(
     bodyLimit: 16 * 1_024,
     trustProxy: options.trustProxy ?? false,
   })
+  const optimizer = options.optimizer ?? new OptimizationJobs()
   void app.register(fastifyCookie)
   void app.register(fastifyHelmet, {
     // Clear prior HSTS while HTTP still serves the legacy game on this hostname.
@@ -182,6 +198,7 @@ export function buildApp(
 
   app.addHook('onClose', async () => {
     if (cleanupTimer) clearInterval(cleanupTimer)
+    await optimizer.close()
     await store.close?.()
   })
 
@@ -323,6 +340,51 @@ export function buildApp(
       sessionToken(request),
       gameId,
     )
+  })
+
+  app.post('/api/games/:gameId/optimization', {
+    config: optimizationRouteConfig,
+  }, async (request, reply) => {
+    const { gameId } = parse(gameParamsSchema, request.params)
+    const requested = parse(optimizationRequestSchema, request.body)
+    const input = await store.getOptimizationInput(
+      sessionToken(request),
+      gameId,
+      requested,
+    )
+    let job
+    try {
+      job = optimizer.start(gameId, input)
+    } catch (caught) {
+      if (caught instanceof Error && caught.message === 'OPTIMIZATION_QUEUE_FULL') {
+        throw new ApiError(
+          503,
+          'OPTIMIZATION_BUSY',
+          'The optimizer is busy with other classes. Try again in a few minutes.',
+        )
+      }
+      throw caught
+    }
+    return reply
+      .status(job.status === 'queued' || job.status === 'running' ? 202 : 200)
+      .send(job)
+  })
+
+  app.get('/api/games/:gameId/optimization/:jobId', async (request) => {
+    const { gameId, jobId } = parse(optimizationParamsSchema, request.params)
+    await store.authorizeFacilitator(sessionToken(request), gameId)
+    try {
+      return optimizer.get(gameId, jobId)
+    } catch (caught) {
+      if (caught instanceof Error && caught.message === 'OPTIMIZATION_JOB_NOT_FOUND') {
+        throw new ApiError(
+          404,
+          'OPTIMIZATION_JOB_NOT_FOUND',
+          'That optimization job is unavailable.',
+        )
+      }
+      throw caught
+    }
   })
 
   app.get('/api/games/:gameId/participants/:participantId/history', async (request) => {

@@ -3,3 +3,6 @@
 deploy/Caddyfile text eol=lf
 deploy/motor-city.service text eol=lf
 docs/Motor-City-Facilitator-Guide.manifest.json text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+src/team/evan-optimal-player.generated.ts text eol=lf

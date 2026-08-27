@@ -125,20 +125,27 @@ them before ending, and collapse it again if students can see your admin screen:
 The penalty round cannot be later than the round you score up to; the screen will tell you if
 you try.
 
-### Exact v1 optimal result
+### Optimal Run reference student
 
-When the exact recommended setup is unchanged, **Factory floor** includes an **Optimal Run**
-reference student. It is not a real participant and does not affect rankings, class statistics,
-or exports. Its verified result is **$81.00**: 28 cars shipped — 24 blue, 2 green, and 2 red —
-with no WIP penalty at round 25.
+**Factory floor** includes an **Optimal Run** reference student. It is not a real participant and
+does not affect rankings, class statistics, or exports. The exact default is ready immediately:
+**$82.00**, with 28 cars shipped — 24 blue and 4 red — and no WIP penalty at round 25.
+
+For any other saved setup, press **Calculate reference run**. The solver uses that session's exact
+resource sequence, active models, economics, final round, and WIP round. It runs in the background,
+so you can continue preparing or running the class. Runs may take a few seconds or several minutes.
+
+- **Proven optimal simulation** means the solver completed its mathematical proof.
+- **Best run found · not proven optimal** means the safety time limit expired. The displayed run
+  is legal and engine-replayed, but a better route may exist.
 
 Press **View round history** on that card to inspect it exactly like a student: newest rounds
 first, with every station's model counts, WIP, shipped cars, revenue, issued resources,
 exchanges, and unused resources. The simulation was replayed through the same movement,
 allocation, conversion, paint, and scoring rules used by the game.
 
-The reference student disappears if models, economics, resource sequence, final round, or WIP
-round are changed. Other routes may reach the same optimal result.
+Changing the active scoring fields invalidates a previously displayed result and offers a new
+calculation. Other legal routes may reach the same score.
 
 ### What students see when time runs out
 

@@ -12,6 +12,10 @@
 - Each timed player round has a server-owned start timestamp and timeout flag; refresh or rejoin cannot reset the countdown.
 - On timeout, the authoritative command path allocates materials once, locks further mutations, and only accepts round advance.
 - Fastify validates every command and applies the shared engine server-side.
+- Facilitator-only optimization jobs run HiGHS MILP in one bounded worker thread, then replay every
+  solution through the authoritative engine before returning a synthetic student history.
+- Optimization jobs are deduplicated by game/configuration, cached in process for 12 hours, limited
+  to eight waiting jobs, and never enter participant state, reports, rankings, or exports.
 - Successful mutations persist idempotency receipts; round advances append report snapshots.
 - Browser sessions use short-lived HttpOnly cookies and rotating recovery credentials.
 - Transactional reports read complete participant rows and never combine versions from different command states.
@@ -28,6 +32,12 @@ Application API
 Authoritative game service
   | transactions
 Relational database
+
+Application API
+  | facilitator-only job request
+Single optimization worker
+  | MILP solution -> authoritative engine replay
+Synthetic reference history (not persisted)
 ```
 
 The server is authoritative for team games. Clients submit commands rather than database-shaped records. A per-player state version rejects stale writes without coupling independent teams.

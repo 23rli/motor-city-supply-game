@@ -96,6 +96,21 @@ export interface TeamExport {
   players: TeamExportPlayer[]
 }
 
+export type OptimalRunJobStatus =
+  | 'queued'
+  | 'running'
+  | 'optimal'
+  | 'feasible'
+  | 'failed'
+
+export interface OptimalRunJob {
+  id: string
+  status: OptimalRunJobStatus
+  player?: TeamExportPlayer
+  solveTimeMs?: number
+  message?: string
+}
+
 export interface PlayerCommandResponse {
   state: GameState
   stateVersion: number

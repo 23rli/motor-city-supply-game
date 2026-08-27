@@ -13,11 +13,11 @@ describe('exact v1 25-round benchmark', () => {
   it('publishes the engine-replayed optimal result', () => {
     expect(getEvanOptimalBenchmark(game.config, 25, 25)).toBe(EVAN_OPTIMAL_BENCHMARK)
     expect(EVAN_OPTIMAL_BENCHMARK).toEqual({
-      score: 81,
-      revenue: 81,
+      score: 82,
+      revenue: 82,
       wipPenalty: 0,
       throughput: 28,
-      completed: { blue: 24, green: 2, red: 2, yellow: 0 },
+      completed: { blue: 24, green: 0, red: 4, yellow: 0 },
     })
   })
 

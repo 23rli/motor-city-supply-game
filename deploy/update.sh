@@ -90,6 +90,8 @@ log "Building (the running version keeps serving throughout)"
 as_app "$NODE_BIN/npm" --prefix "$SRC_DIR" ci --no-audit --no-fund
 as_app "$NODE_BIN/npm" --prefix "$SRC_DIR" run build
 [[ -f $SRC_DIR/dist-server/index.js ]] || die "Build produced no dist-server/index.js."
+[[ -f $SRC_DIR/dist-server/optimizer-worker.js ]] \
+  || die "Build produced no dist-server/optimizer-worker.js."
 [[ -f $SRC_DIR/dist/index.html ]] || die "Build produced no dist/index.html."
 
 restore() {

@@ -2,6 +2,7 @@ import type { GameSetup, SessionPlan } from '../game/types'
 import type {
   PlayerCommand,
   PlayerCommandResponse,
+  OptimalRunJob,
   TeamCredentials,
   TeamExport,
   TeamExportPlayer,
@@ -144,6 +145,22 @@ export const teamApi = {
   getPlayerHistory(gameId: string, participantId: string) {
     return request<TeamExportPlayer>(
       `/api/games/${gameId}/participants/${participantId}/history`,
+    )
+  },
+
+  startOptimization(
+    gameId: string,
+    input: { penaltyRound: number; endRound: number },
+  ) {
+    return request<OptimalRunJob>(`/api/games/${gameId}/optimization`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+
+  getOptimization(gameId: string, jobId: string) {
+    return request<OptimalRunJob>(
+      `/api/games/${gameId}/optimization/${jobId}`,
     )
   },
 

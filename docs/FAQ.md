@@ -42,12 +42,15 @@ There is one legal production route: **Planning → Manufacturing → Assembly �
 Done**. The app enforces it. Lane priority, allocation timing, and resource conversion remain
 strategic choices.
 
-For the exact recommended v1 setup, the verified optimal result is **$81.00**: 28 shipped cars
-(24 blue, 2 green, and 2 red), $81.00 revenue, and no WIP penalty at round 25. **Factory floor**
-shows it as a non-ranked **Optimal Run** reference student only while the exact sequence, models,
-economics, and scoring rounds still match. Press **View round history** to browse all 25 rounds
-through the same station/resource history used for real students. More than one legal route may
-attain the same optimal result.
+For the exact recommended v1 setup, the proven optimal result is **$82.00**: 28 shipped cars
+(24 blue and 4 red), $82.00 revenue, and no WIP penalty at round 25. **Factory floor** shows it as
+a non-ranked **Optimal Run** reference student.
+
+For another setup, press **Calculate reference run**. The server optimizes its exact schedule,
+models, economics, and scoring rounds, then replays the answer through the game engine. A result
+labeled **Proven optimal simulation** carries a completed proof. **Best run found · not proven
+optimal** is a legal result returned when the safety time limit expires. Press **View round
+history** to inspect it like a real student. More than one legal route may attain the same score.
 
 ## What happens when time reaches zero?
 

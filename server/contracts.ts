@@ -99,6 +99,19 @@ export const participantParamsSchema = z.object({
   participantId: z.string().uuid(),
 }).strict()
 
+export const optimizationParamsSchema = z.object({
+  gameId: z.string().uuid(),
+  jobId: z.string().uuid(),
+}).strict()
+
+export const optimizationRequestSchema = z.object({
+  penaltyRound: z.number().int().min(1).max(100),
+  endRound: z.number().int().min(1).max(100),
+}).strict().refine(
+  (input) => input.penaltyRound <= input.endRound,
+  'The WIP measurement round cannot be after the final round.',
+)
+
 export const endSessionSchema = z.object({
   penaltyRound: z.number().int().min(1).max(10_000),
   endRound: z.number().int().min(1).max(10_000),
@@ -141,3 +154,4 @@ export type EndSessionInput = z.infer<typeof endSessionSchema>
 export type JoinSessionInput = z.infer<typeof joinSessionSchema>
 export type RejoinSessionInput = z.infer<typeof rejoinSessionSchema>
 export type PlayerCommandInput = z.infer<typeof playerCommandSchema>
+export type OptimizationRequestInput = z.infer<typeof optimizationRequestSchema>

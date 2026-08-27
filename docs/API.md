@@ -23,13 +23,13 @@ Example fresh setup:
   "facilitatorName": "Professor Morgan",
   "enabledModels": ["blue", "green", "red", "yellow"],
   "resourcePlan": "evan",
-  "penaltyRound": 10,
-  "endRound": 10,
+  "penaltyRound": 25,
+  "endRound": 25,
   "timer": {
     "enabled": true,
     "segments": [
-      { "startRound": 1, "endRound": 5, "durationSeconds": 600 },
-      { "startRound": 6, "endRound": 10, "durationSeconds": 300 }
+      { "startRound": 1, "endRound": 10, "durationSeconds": 600 },
+      { "startRound": 11, "endRound": 25, "durationSeconds": 300 }
     ]
   },
   "notes": "Operations section A"
@@ -45,12 +45,21 @@ Example fresh setup:
 | `GET` | `/api/games/:gameId/report` | Read the live/final comparison report |
 | `GET` | `/api/games/:gameId/export` | Read the full cohort history for workbook/CSV export |
 | `GET` | `/api/games/:gameId/participants/:participantId/history` | Read one player's complete round history |
+| `POST` | `/api/games/:gameId/optimization` | Start or reuse an optimal-run job |
+| `GET` | `/api/games/:gameId/optimization/:jobId` | Poll an optimal-run job |
 | `POST` | `/api/games/:gameId/participants/:participantId/recovery` | Rotate a player's recovery code |
 | `DELETE` | `/api/games/:gameId/participants/:participantId` | Durably remove a player from active access and reports |
 
 End requires one-based `penaltyRound` and `endRound`. The selected historical WIP round determines penalties; the cutoff round determines reported revenue and throughput.
 Ending locks both scores and roster membership. Recovery-code rotation and participant removal return `409 GAME_FINISHED` afterward, while reports, player drill-down, and exports remain readable.
 Participant activity timestamps also freeze at finish. Player-accessible final reports reveal scores but omit facilitator notes and every participant's optional student identifier; facilitator reports and exports retain those fields.
+
+Optimal-run routes require a facilitator session. `POST` accepts one-based `penaltyRound` and
+`endRound` values from 1 through 100 and returns `202` while work is queued/running. Polling returns
+`queued | running | optimal | feasible | failed`. An `optimal` result includes a proof-complete,
+engine-replayed synthetic player; `feasible` includes a legal engine-replayed best result when the
+solver reaches its time limit. Jobs are cached in process by game and scoring-relevant configuration for
+12 hours. They never create participant/database rows and are unavailable to player sessions.
 
 ## Player commands
 

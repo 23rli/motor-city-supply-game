@@ -4,13 +4,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
   "id": "optimal-run",
   "name": "Optimal Run",
   "identifier": null,
-  "stateVersion": 25,
-  "lastSeenAt": "1970-01-01T00:00:00.000Z",
   "round": 24,
   "completed": {
     "blue": 24,
-    "green": 2,
-    "red": 2,
+    "green": 0,
+    "red": 4,
     "yellow": 0
   },
   "wip": {
@@ -19,9 +17,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     "red": 0,
     "yellow": 0
   },
-  "revenue": 81,
+  "revenue": 82,
   "projectedPenalty": 0,
-  "projectedScore": 81,
+  "projectedScore": 82,
   "scoredThroughRound": 25,
   "penaltyMeasuredAtRound": 25,
   "peakWip": 15,
@@ -38,6 +36,8 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     "curing": false,
     "cured": 0
   },
+  "stateVersion": 25,
+  "lastSeenAt": "1970-01-01T00:00:00.000Z",
   "history": [
     {
       "round": 0,
@@ -49,12 +49,12 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "revenue": 0,
       "wip": {
-        "blue": 2,
-        "green": 2,
-        "red": 2,
+        "blue": 4,
+        "green": 0,
+        "red": 1,
         "yellow": 0
       },
-      "projectedPenalty": 7.5,
+      "projectedPenalty": 7.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -68,9 +68,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 2,
-          "green": 2,
-          "red": 2,
+          "blue": 4,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "assembly": {
@@ -120,11 +120,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "revenue": 0,
       "wip": {
         "blue": 4,
-        "green": 2,
+        "green": 0,
         "red": 2,
         "yellow": 0
       },
-      "projectedPenalty": 10.5,
+      "projectedPenalty": 8.5,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -138,15 +138,15 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 3,
-          "green": 1,
-          "red": 2,
+          "blue": 2,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "assembly": {
-          "blue": 1,
-          "green": 1,
-          "red": 0,
+          "blue": 2,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "quality": {
@@ -189,12 +189,12 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "revenue": 0,
       "wip": {
-        "blue": 4,
-        "green": 2,
-        "red": 2,
+        "blue": 6,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "projectedPenalty": 10.5,
+      "projectedPenalty": 14,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -208,21 +208,21 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 1,
+          "blue": 3,
           "green": 0,
           "red": 2,
           "yellow": 0
         },
         "assembly": {
           "blue": 2,
-          "green": 1,
-          "red": 0,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "quality": {
           "blue": 1,
-          "green": 1,
-          "red": 0,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
@@ -244,9 +244,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         "blue": 1
       },
       "convertedResources": {
-        "red": 2,
+        "red": 10,
         "yellow": 6,
-        "blue": 3
+        "blue": 1
       }
     },
     {
@@ -259,12 +259,12 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "revenue": 0,
       "wip": {
-        "blue": 4,
-        "green": 2,
-        "red": 2,
+        "blue": 7,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "projectedPenalty": 10.5,
+      "projectedPenalty": 15.5,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -278,26 +278,26 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 1,
+          "blue": 4,
+          "green": 0,
+          "red": 1,
+          "yellow": 0
+        },
+        "assembly": {
+          "blue": 2,
           "green": 0,
           "red": 2,
           "yellow": 0
         },
-        "assembly": {
-          "blue": 1,
-          "green": 1,
-          "red": 0,
-          "yellow": 0
-        },
         "quality": {
-          "blue": 2,
+          "blue": 1,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
           "blue": 0,
-          "green": 1,
+          "green": 0,
           "red": 0,
           "yellow": 0
         },
@@ -314,9 +314,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         "blue": 2
       },
       "convertedResources": {
-        "red": 2,
+        "red": 6,
         "yellow": 2,
-        "blue": 3
+        "blue": 2
       }
     },
     {
@@ -329,12 +329,12 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "revenue": 0,
       "wip": {
-        "blue": 4,
-        "green": 2,
-        "red": 2,
+        "blue": 8,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "projectedPenalty": 10.5,
+      "projectedPenalty": 17,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -348,27 +348,27 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 1,
+          "blue": 2,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "assembly": {
-          "blue": 1,
+          "blue": 3,
           "green": 0,
           "red": 2,
           "yellow": 0
         },
         "quality": {
-          "blue": 2,
-          "green": 1,
+          "blue": 3,
+          "green": 0,
           "red": 0,
           "yellow": 0
         },
         "paint": {
           "blue": 0,
-          "green": 1,
-          "red": 0,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "dry": {
@@ -393,85 +393,15 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 5,
       "completed": {
         "blue": 0,
-        "green": 1,
+        "green": 0,
         "red": 0,
         "yellow": 0
       },
-      "revenue": 2,
+      "revenue": 0,
       "wip": {
-        "blue": 7,
-        "green": 1,
-        "red": 2,
-        "yellow": 0
-      },
-      "projectedPenalty": 14,
-      "unusedResources": {
-        "red": 0,
-        "yellow": 0,
-        "blue": 0
-      },
-      "stations": {
-        "planning": {
-          "blue": 1,
-          "green": 1,
-          "red": 1,
-          "yellow": 1
-        },
-        "manufacturing": {
-          "blue": 4,
-          "green": 0,
-          "red": 0,
-          "yellow": 0
-        },
-        "assembly": {
-          "blue": 0,
-          "green": 0,
-          "red": 1,
-          "yellow": 0
-        },
-        "quality": {
-          "blue": 1,
-          "green": 0,
-          "red": 1,
-          "yellow": 0
-        },
-        "paint": {
-          "blue": 2,
-          "green": 1,
-          "red": 0,
-          "yellow": 0
-        },
-        "dry": {
-          "blue": 0,
-          "green": 0,
-          "red": 0,
-          "yellow": 0
-        }
-      },
-      "issuedResources": {
-        "red": 9,
-        "yellow": 2,
-        "blue": 3
-      },
-      "convertedResources": {
-        "red": 9,
-        "yellow": 2,
-        "blue": 3
-      }
-    },
-    {
-      "round": 6,
-      "completed": {
-        "blue": 0,
-        "green": 1,
-        "red": 0,
-        "yellow": 0
-      },
-      "revenue": 2,
-      "wip": {
-        "blue": 10,
-        "green": 1,
-        "red": 2,
+        "blue": 9,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
       "projectedPenalty": 18.5,
@@ -494,7 +424,77 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "assembly": {
+          "blue": 3,
+          "green": 0,
+          "red": 1,
+          "yellow": 0
+        },
+        "quality": {
+          "blue": 3,
+          "green": 0,
+          "red": 2,
+          "yellow": 0
+        },
+        "paint": {
+          "blue": 0,
+          "green": 0,
+          "red": 1,
+          "yellow": 0
+        },
+        "dry": {
+          "blue": 0,
+          "green": 0,
+          "red": 0,
+          "yellow": 0
+        }
+      },
+      "issuedResources": {
+        "red": 9,
+        "yellow": 2,
+        "blue": 3
+      },
+      "convertedResources": {
+        "red": 1,
+        "yellow": 2,
+        "blue": 5
+      }
+    },
+    {
+      "round": 6,
+      "completed": {
+        "blue": 0,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "revenue": 2.5,
+      "wip": {
+        "blue": 10,
+        "green": 0,
+        "red": 3,
+        "yellow": 0
+      },
+      "projectedPenalty": 18.75,
+      "unusedResources": {
+        "red": 0,
+        "yellow": 0,
+        "blue": 0
+      },
+      "stations": {
+        "planning": {
+          "blue": 1,
+          "green": 1,
+          "red": 1,
+          "yellow": 1
+        },
+        "manufacturing": {
           "blue": 4,
+          "green": 0,
+          "red": 0,
+          "yellow": 0
+        },
+        "assembly": {
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -507,8 +507,8 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         },
         "paint": {
           "blue": 2,
-          "green": 1,
-          "red": 0,
+          "green": 0,
+          "red": 1,
           "yellow": 0
         },
         "dry": {
@@ -524,27 +524,27 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         "blue": 2
       },
       "convertedResources": {
-        "red": 7,
+        "red": 3,
         "yellow": 7,
-        "blue": 2
+        "blue": 3
       }
     },
     {
       "round": 7,
       "completed": {
-        "blue": 2,
-        "green": 2,
-        "red": 0,
+        "blue": 0,
+        "green": 0,
+        "red": 1,
         "yellow": 0
       },
-      "revenue": 10,
+      "revenue": 2.5,
       "wip": {
         "blue": 11,
         "green": 0,
-        "red": 2,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 19,
+      "projectedPenalty": 20.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -558,13 +558,13 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 5,
+          "blue": 4,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -576,9 +576,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "paint": {
-          "blue": 0,
+          "blue": 2,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "dry": {
@@ -603,18 +603,18 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 8,
       "completed": {
         "blue": 2,
-        "green": 2,
-        "red": 0,
-        "yellow": 0
-      },
-      "revenue": 10,
-      "wip": {
-        "blue": 12,
         "green": 0,
         "red": 2,
         "yellow": 0
       },
-      "projectedPenalty": 20.5,
+      "revenue": 11,
+      "wip": {
+        "blue": 10,
+        "green": 0,
+        "red": 2,
+        "yellow": 0
+      },
+      "projectedPenalty": 17.5,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -628,13 +628,13 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -673,11 +673,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 9,
       "completed": {
         "blue": 2,
-        "green": 2,
-        "red": 0,
+        "green": 0,
+        "red": 2,
         "yellow": 0
       },
-      "revenue": 10,
+      "revenue": 11,
       "wip": {
         "blue": 13,
         "green": 0,
@@ -698,13 +698,13 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 3,
+          "blue": 4,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -743,18 +743,18 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 10,
       "completed": {
         "blue": 4,
-        "green": 2,
-        "red": 1,
+        "green": 0,
+        "red": 3,
         "yellow": 0
       },
-      "revenue": 18.5,
+      "revenue": 19.5,
       "wip": {
-        "blue": 12,
+        "blue": 11,
         "green": 0,
         "red": 1,
         "yellow": 0
       },
-      "projectedPenalty": 19.25,
+      "projectedPenalty": 17.75,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -768,27 +768,27 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 5,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 2,
+          "blue": 4,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "quality": {
-          "blue": 3,
-          "green": 0,
-          "red": 0,
-          "yellow": 0
-        },
-        "paint": {
           "blue": 2,
           "green": 0,
           "red": 1,
+          "yellow": 0
+        },
+        "paint": {
+          "blue": 3,
+          "green": 0,
+          "red": 0,
           "yellow": 0
         },
         "dry": {
@@ -813,18 +813,18 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 11,
       "completed": {
         "blue": 4,
-        "green": 2,
-        "red": 1,
+        "green": 0,
+        "red": 3,
         "yellow": 0
       },
-      "revenue": 18.5,
+      "revenue": 19.5,
       "wip": {
-        "blue": 14,
+        "blue": 12,
         "green": 0,
         "red": 1,
         "yellow": 0
       },
-      "projectedPenalty": 22.25,
+      "projectedPenalty": 19.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -838,27 +838,27 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "quality": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
-          "blue": 2,
+          "blue": 3,
           "green": 0,
-          "red": 1,
+          "red": 0,
           "yellow": 0
         },
         "dry": {
@@ -882,19 +882,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 12,
       "completed": {
-        "blue": 6,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 27,
-      "wip": {
-        "blue": 12,
+        "blue": 7,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 18,
+      "revenue": 28.5,
+      "wip": {
+        "blue": 10,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 16.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -908,7 +908,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 2,
+          "blue": 1,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -920,9 +920,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "quality": {
-          "blue": 2,
+          "blue": 1,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
@@ -952,21 +952,21 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 13,
       "completed": {
-        "blue": 6,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 27,
-      "wip": {
-        "blue": 12,
+        "blue": 7,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 18,
-      "unusedResources": {
+      "revenue": 28.5,
+      "wip": {
+        "blue": 11,
+        "green": 0,
         "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 17.75,
+      "unusedResources": {
+        "red": 0,
         "yellow": 0,
         "blue": 0
       },
@@ -990,9 +990,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "quality": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
@@ -1022,19 +1022,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 14,
       "completed": {
-        "blue": 9,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 36,
-      "wip": {
-        "blue": 11,
+        "blue": 10,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 16.5,
+      "revenue": 37.5,
+      "wip": {
+        "blue": 9,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 14.75,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -1048,7 +1048,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1060,9 +1060,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "quality": {
-          "blue": 2,
+          "blue": 1,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
@@ -1092,19 +1092,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 15,
       "completed": {
-        "blue": 9,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 36,
-      "wip": {
-        "blue": 11,
+        "blue": 10,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 16.5,
+      "revenue": 37.5,
+      "wip": {
+        "blue": 10,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 16.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -1118,21 +1118,21 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 4,
+          "blue": 3,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 1,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "quality": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "paint": {
@@ -1162,19 +1162,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 16,
       "completed": {
-        "blue": 12,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 45,
-      "wip": {
-        "blue": 9,
+        "blue": 13,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 13.5,
+      "revenue": 46.5,
+      "wip": {
+        "blue": 7,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 11.75,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -1188,7 +1188,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1206,9 +1206,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "paint": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "dry": {
@@ -1232,19 +1232,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
     {
       "round": 17,
       "completed": {
-        "blue": 12,
-        "green": 2,
-        "red": 2,
-        "yellow": 0
-      },
-      "revenue": 45,
-      "wip": {
-        "blue": 10,
+        "blue": 13,
         "green": 0,
-        "red": 0,
+        "red": 3,
         "yellow": 0
       },
-      "projectedPenalty": 15,
+      "revenue": 46.5,
+      "wip": {
+        "blue": 8,
+        "green": 0,
+        "red": 1,
+        "yellow": 0
+      },
+      "projectedPenalty": 13.25,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
@@ -1258,7 +1258,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1276,9 +1276,9 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "paint": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
-          "red": 0,
+          "red": 1,
           "yellow": 0
         },
         "dry": {
@@ -1303,22 +1303,22 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 18,
       "completed": {
         "blue": 15,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 54,
+      "revenue": 55,
       "wip": {
-        "blue": 9,
+        "blue": 8,
         "green": 0,
         "red": 0,
         "yellow": 0
       },
-      "projectedPenalty": 13.5,
+      "projectedPenalty": 12,
       "unusedResources": {
         "red": 0,
         "yellow": 0,
-        "blue": 0
+        "blue": 1
       },
       "stations": {
         "planning": {
@@ -1328,7 +1328,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1364,20 +1364,20 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         "blue": 3
       },
       "convertedResources": {
-        "red": 4,
+        "red": 5,
         "yellow": 6,
-        "blue": 1
+        "blue": 3
       }
     },
     {
       "round": 19,
       "completed": {
         "blue": 15,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 54,
+      "revenue": 55,
       "wip": {
         "blue": 9,
         "green": 0,
@@ -1387,7 +1387,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "projectedPenalty": 13.5,
       "unusedResources": {
         "red": 0,
-        "yellow": 0,
+        "yellow": 1,
         "blue": 0
       },
       "stations": {
@@ -1398,13 +1398,13 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 1
         },
         "manufacturing": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "assembly": {
-          "blue": 0,
+          "blue": 1,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1435,19 +1435,19 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "convertedResources": {
         "red": 4,
-        "yellow": 0,
-        "blue": 5
+        "yellow": 4,
+        "blue": 4
       }
     },
     {
       "round": 20,
       "completed": {
         "blue": 18,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 63,
+      "revenue": 64,
       "wip": {
         "blue": 6,
         "green": 0,
@@ -1456,8 +1456,8 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       },
       "projectedPenalty": 9,
       "unusedResources": {
-        "red": 2,
-        "yellow": 0,
+        "red": 8,
+        "yellow": 1,
         "blue": 0
       },
       "stations": {
@@ -1474,13 +1474,13 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
           "yellow": 0
         },
         "assembly": {
-          "blue": 3,
+          "blue": 2,
           "green": 0,
           "red": 0,
           "yellow": 0
         },
         "quality": {
-          "blue": 0,
+          "blue": 1,
           "green": 0,
           "red": 0,
           "yellow": 0
@@ -1504,20 +1504,20 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
         "blue": 2
       },
       "convertedResources": {
-        "red": 2,
-        "yellow": 9,
-        "blue": 0
+        "red": 8,
+        "yellow": 7,
+        "blue": 2
       }
     },
     {
       "round": 21,
       "completed": {
         "blue": 18,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 63,
+      "revenue": 64,
       "wip": {
         "blue": 6,
         "green": 0,
@@ -1528,7 +1528,7 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "unusedResources": {
         "red": 1,
         "yellow": 0,
-        "blue": 0
+        "blue": 2
       },
       "stations": {
         "planning": {
@@ -1583,11 +1583,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 22,
       "completed": {
         "blue": 21,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 72,
+      "revenue": 73,
       "wip": {
         "blue": 3,
         "green": 0,
@@ -1653,11 +1653,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 23,
       "completed": {
         "blue": 21,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 72,
+      "revenue": 73,
       "wip": {
         "blue": 3,
         "green": 0,
@@ -1723,11 +1723,11 @@ export const EVAN_OPTIMAL_PLAYER: TeamExportPlayer = {
       "round": 24,
       "completed": {
         "blue": 24,
-        "green": 2,
-        "red": 2,
+        "green": 0,
+        "red": 4,
         "yellow": 0
       },
-      "revenue": 81,
+      "revenue": 82,
       "wip": {
         "blue": 0,
         "green": 0,

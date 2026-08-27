@@ -159,6 +159,17 @@ separate migration step during a deploy.
 
 Games and their player data are deleted automatically 12 hours after session creation.
 
+## Optimal-run worker
+
+Reference calculations use the MIT-licensed HiGHS WebAssembly solver in one worker thread. Only
+one job runs at a time; at most eight wait. A 1-100-round job receives a 10-180 second solver limit
+plus a short shutdown grace period. Completed jobs remain in process memory for 12 hours and are
+lost harmlessly on restart; pressing **Calculate reference run** starts or reuses one.
+
+The worker artifact must exist at `/opt/motor-city/dist-server/optimizer-worker.js`, while the
+HiGHS WASM runtime lives under production `node_modules`. The update script refuses to swap a
+release missing the worker. A failed worker does not affect gameplay or PostgreSQL.
+
 ## When something is wrong
 
 | Symptom | Where to look |
@@ -168,6 +179,8 @@ Games and their player data are deleted automatically 12 hours after session cre
 | Certificate errors | `journalctl -u caddy -n 100`. Renewal needs `:443` reachable from the internet. |
 | App will not start | Almost always PostgreSQL. Check `systemctl status postgresql` and the `DATABASE_URL` in `/etc/motor-city.env`. |
 | Deploy failed | It rolled itself back. Read the output — the build error is printed above the rollback. |
+| Optimal Run stays queued | Another class is calculating. Wait; only one solver job runs at once. |
+| Optimal Run says unavailable | Retry once. Check `journalctl -u motor-city`; gameplay is unaffected. |
 | Old game broken | Nothing here touches it. Check nginx and MariaDB. Confirm nobody upgraded system Node. |
 
 ## Known gaps

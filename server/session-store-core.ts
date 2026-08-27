@@ -8,6 +8,7 @@ import type {
   CreateSessionInput,
   EndSessionInput,
   JoinSessionInput,
+  OptimizationRequestInput,
   PlayerCommandInput,
   RejoinSessionInput,
 } from './contracts'
@@ -93,6 +94,10 @@ export interface ReadmittedParticipant {
   recoveryCode: string
 }
 
+export interface OptimizationInput extends OptimizationRequestInput {
+  config: GameConfig
+}
+
 /** Why a token stopped working, so the player can be told instead of silently dumped out. */
 export type SupersededReason = 'rejoined' | 'removed'
 
@@ -133,6 +138,12 @@ export interface SessionStore {
   getReport(token: string, gameId: string): Promise<unknown>
   getExport(token: string, gameId: string): Promise<unknown>
   getPlayerHistory(token: string, gameId: string, participantId: string): Promise<unknown>
+  getOptimizationInput(
+    token: string,
+    gameId: string,
+    input: OptimizationRequestInput,
+  ): Promise<OptimizationInput>
+  authorizeFacilitator(token: string, gameId: string): Promise<void>
   issueRecoveryCode(
     token: string,
     gameId: string,
@@ -163,6 +174,11 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const now = () => new Date().toISOString()
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('en-US')
 const clone = <T>(value: T): T => structuredClone(value)
+export const toOptimizationConfig = (config: GameConfig): GameConfig => ({
+  ...clone(config),
+  notes: '',
+  timer: { enabled: false, segments: [] },
+})
 
 export class InMemorySessionStore implements SessionStore {
   private readonly sessions = new Map<string, SessionRecord>()
@@ -650,6 +666,21 @@ export class InMemorySessionStore implements SessionStore {
       lastSeenAt: target.lastSeenAt,
       history: [...target.state.history, getRoundSummary(target.state)],
     }
+  }
+
+  async getOptimizationInput(
+    token: string,
+    gameId: string,
+    input: OptimizationRequestInput,
+  ): Promise<OptimizationInput> {
+    const { participant, session } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
+    return { ...input, config: toOptimizationConfig(session.config) }
+  }
+
+  async authorizeFacilitator(token: string, gameId: string) {
+    const { participant } = this.authenticateForGame(token, gameId)
+    this.requireFacilitator(participant)
   }
 
   async cleanupExpiredData() {

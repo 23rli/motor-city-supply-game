@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, Download, History, KeyRound, Package, Sparkles, UserMinus } from 'lucide-react'
+import { AlertTriangle, Calculator, Check, Download, History, KeyRound, LoaderCircle, Package, Sparkles, UserMinus } from 'lucide-react'
 import { RESOURCES } from '../game/types'
 import {
   STALL_AFTER_MS,
@@ -8,7 +8,7 @@ import {
   summarizeCohort,
 } from '../team/cohort'
 import { buildSessionWorkbook } from '../team/sessionWorkbook'
-import type { TeamExport, TeamExportPlayer, TeamPlayerReport } from '../team/types'
+import type { OptimalRunJob, TeamExport, TeamExportPlayer, TeamPlayerReport } from '../team/types'
 
 const totalOf = (values: Record<string, number>) =>
   Object.values(values).reduce((sum, value) => sum + value, 0)
@@ -23,23 +23,70 @@ interface CohortBoardProps {
   onExport: () => Promise<TeamExport>
   readmitted: { name: string; recoveryCode: string } | null
   onDismissReadmit: () => void
-  referencePlayer: TeamExportPlayer | null
+  optimalRun: OptimalRunJob | null
+  onCalculateOptimal: () => void
   onViewReference: (player: TeamExportPlayer) => void
 }
 
 function OptimalRunCard({
-  player,
+  job,
+  onCalculate,
   onView,
 }: {
-  player: TeamExportPlayer
+  job: OptimalRunJob | null
+  onCalculate: () => void
   onView: (player: TeamExportPlayer) => void
 }) {
+  const player = job?.player
+  const pending = job?.status === 'queued' || job?.status === 'running'
+  if (!player) {
+    return (
+      <article className="cohort-card cohort-reference">
+        <header>
+          <div>
+            <strong>Optimal Run</strong>
+            <small className="cohort-reference-label">
+              {job?.status === 'failed'
+                ? 'Calculation unavailable'
+                : pending
+                  ? job.status === 'queued' ? 'Waiting for solver' : 'Calculating this setup'
+                  : 'Reference simulation'}
+            </small>
+          </div>
+          {pending
+            ? <LoaderCircle className="optimal-spinner" size={18} aria-hidden="true" />
+            : <Calculator size={18} aria-hidden="true" />}
+        </header>
+        <p className="cohort-reference-copy">
+          {job?.status === 'failed'
+            ? job.message ?? 'No legal reference run was produced. Try again.'
+            : pending
+              ? 'The solver runs in the background. You can keep preparing the class.'
+              : 'Calculate a reference student from this exact schedule, economics, models, and scoring rounds.'}
+        </p>
+        <button
+          className="button button-secondary cohort-action"
+          type="button"
+          disabled={pending}
+          onClick={onCalculate}
+        >
+          {pending
+            ? <LoaderCircle className="optimal-spinner" size={14} aria-hidden="true" />
+            : <Calculator size={14} aria-hidden="true" />}
+          {pending ? 'Calculating...' : job?.status === 'failed' ? 'Try again' : 'Calculate reference run'}
+        </button>
+      </article>
+    )
+  }
+
   return (
     <article className="cohort-card cohort-reference">
       <header>
         <div>
           <strong>{player.name}</strong>
-          <small className="cohort-reference-label">Verified v1 simulation</small>
+          <small className="cohort-reference-label">
+            {job?.status === 'optimal' ? 'Proven optimal simulation' : 'Best run found · not proven optimal'}
+          </small>
         </div>
         <span className="cohort-round">R{player.currentRound}</span>
       </header>
@@ -49,7 +96,7 @@ function OptimalRunCard({
         <div><dt>Score</dt><dd>${player.projectedScore.toFixed(2)}</dd></div>
       </dl>
       <p className="cohort-signals">
-        <span><Sparkles size={12} aria-hidden="true" /> Exact 25-round replay</span>
+        <span><Sparkles size={12} aria-hidden="true" /> {player.history.length}-round engine replay</span>
         <span><Package size={12} aria-hidden="true" /> {totalOf(player.wip)} final WIP</span>
       </p>
       <button
@@ -73,7 +120,8 @@ export function CohortBoard({
   onExport,
   readmitted,
   onDismissReadmit,
-  referencePlayer,
+  optimalRun,
+  onCalculateOptimal,
   onViewReference,
 }: CohortBoardProps) {
   const [now, setNow] = useState(() => Date.now())
@@ -143,11 +191,13 @@ export function CohortBoard({
         <div className="panel-heading">
           <div><p>Live cohort</p><h2 id="cohort-title">Factory floor</h2></div>
         </div>
-        {referencePlayer && (
-          <div className="cohort-grid">
-            <OptimalRunCard player={referencePlayer} onView={onViewReference} />
-          </div>
-        )}
+        <div className="cohort-grid">
+          <OptimalRunCard
+            job={optimalRun}
+            onCalculate={onCalculateOptimal}
+            onView={onViewReference}
+          />
+        </div>
         <p className="cohort-empty">Player boards appear here once the session starts.</p>
       </section>
     )
@@ -217,9 +267,11 @@ export function CohortBoard({
       </details>
 
       <div className="cohort-grid">
-        {referencePlayer && (
-          <OptimalRunCard player={referencePlayer} onView={onViewReference} />
-        )}
+        <OptimalRunCard
+          job={optimalRun}
+          onCalculate={onCalculateOptimal}
+          onView={onViewReference}
+        />
         {ordered.map((player) => {
           const quiet = referenceTime - Date.parse(player.lastSeenAt) > STALL_AFTER_MS
           const wip = totalOf(player.wip)

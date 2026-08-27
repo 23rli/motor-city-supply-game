@@ -6,11 +6,11 @@ import {
 import { CAR_MODELS, RESOURCES, type GameConfig } from './types'
 
 export const EVAN_OPTIMAL_BENCHMARK = {
-  score: 81,
-  revenue: 81,
+  score: 82,
+  revenue: 82,
   wipPenalty: 0,
   throughput: 28,
-  completed: { blue: 24, green: 2, red: 2, yellow: 0 },
+  completed: { blue: 24, green: 0, red: 4, yellow: 0 },
 } as const
 
 export type EvanOptimalBenchmark = typeof EVAN_OPTIMAL_BENCHMARK

@@ -19,8 +19,8 @@
 
 - **Original 25-round Team Sequence** is the exact predetermined v1 sequence.
 - Facilitate opens with the exact v1 25-round sequence and a timer change after round 10.
-- Factory floor shows the verified $81.00 optimum as a non-ranked reference student only for
-	the unchanged default setup.
+- Factory floor shows the proven $82.00 default optimum as a non-ranked reference student and can
+  calculate an engine-replayed reference for any saved 1-100-round setup.
 - The timer is optional and is configured before session creation.
 - Each player has an independent per-round countdown.
 - At timeout, materials allocate automatically and the player confirms the next round.

@@ -10,6 +10,7 @@ import type {
   CreateSessionInput,
   EndSessionInput,
   JoinSessionInput,
+  OptimizationRequestInput,
   PlayerCommandInput,
   RejoinSessionInput,
 } from './contracts'
@@ -35,12 +36,14 @@ import {
 } from './session-security'
 import {
   ApiError,
+  type OptimizationInput,
   type ParticipantRole,
   type PlayerCommandResult,
   type SessionStatus,
   type SessionStore,
   SUPERSEDED_MESSAGES,
   SupersededTokens,
+  toOptimizationConfig,
 } from './session-store-core'
 
 interface GameRow {
@@ -773,6 +776,30 @@ export class SqlSessionStore implements SessionStore {
         lastSeenAt: asIso(target.last_seen_at),
         history: [...state.history, getRoundSummary(state)],
       }
+    })
+  }
+
+  async getOptimizationInput(
+    token: string,
+    gameId: string,
+    input: OptimizationRequestInput,
+  ): Promise<OptimizationInput> {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token, 'command')
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
+      return {
+        ...input,
+        config: toOptimizationConfig(asJson<GameConfig>(game.config)),
+      }
+    })
+  }
+
+  async authorizeFacilitator(token: string, gameId: string) {
+    return this.client.transaction(async (tx) => {
+      const { participant, game } = await this.authenticate(tx, token, 'command')
+      this.requireGame(participant, game, gameId)
+      this.requireFacilitator(participant)
     })
   }
 

@@ -32,6 +32,7 @@ import { commandPreemptedByTimeout } from './roundTimer'
 import { shouldApplySessionSnapshot } from './sessionSnapshot'
 import { EVAN_OPTIMAL_PLAYER } from './evan-optimal-player.generated'
 import type {
+  OptimalRunJob,
   PlayerCommand,
   TeamReport,
   TeamExportPlayer,
@@ -84,19 +85,41 @@ export function TeamSession({
   const [historyName, setHistoryName] = useState('')
   const [historyPlayer, setHistoryPlayer] = useState<TeamExportPlayer | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [optimization, setOptimization] = useState<{
+    target: string
+    job: OptimalRunJob
+  } | null>(null)
+  const [optimizationStarting, setOptimizationStarting] = useState(false)
   const historyRequest = useRef(0)
   const loadRequest = useRef(0)
   const initializedPlanFor = useRef<string | null>(null)
   // What a student should type into a browser, without the scheme or a trailing slash.
   const joinAddress = window.location.host + (window.location.pathname === '/' ? '' : window.location.pathname)
   const finished = snapshot?.game.status === 'finished'
-  const optimalRun = snapshot && getEvanOptimalBenchmark(
+  const optimizationEndRound = snapshot?.game.status === 'active'
+    ? endRound
+    : snapshot?.game.endRound ?? endRound
+  const optimizationPenaltyRound = snapshot?.game.status === 'active'
+    ? penaltyRound
+    : snapshot?.game.penaltyRound ?? penaltyRound
+  const optimizationTarget = snapshot
+    ? `${snapshot.game.id}:${optimizationEndRound}:${optimizationPenaltyRound}`
+    : ''
+  const optimizationGameId = snapshot?.game.id ?? ''
+  const builtInOptimalRun: OptimalRunJob | null = snapshot && getEvanOptimalBenchmark(
     snapshot.game.config,
-    snapshot.game.status === 'active' ? endRound : snapshot.game.endRound,
-    snapshot.game.status === 'active' ? penaltyRound : snapshot.game.penaltyRound,
+    optimizationEndRound,
+    optimizationPenaltyRound,
   )
-    ? EVAN_OPTIMAL_PLAYER
+    ? { id: 'exact-evan-cache', status: 'optimal', player: EVAN_OPTIMAL_PLAYER }
     : null
+  const currentOptimization = optimization?.target === optimizationTarget
+    ? optimization.job
+    : null
+  const optimalRun = builtInOptimalRun
+    ?? (optimizationStarting
+      ? { id: 'starting', status: 'queued' as const }
+      : currentOptimization)
   // Until the run ends the WIP penalty is not applied anywhere, so the reveal still lands.
   const leaderboard = useMemo(
     () => rankPlayers(report?.players ?? [], previousRanks.current, finished ? 'score' : 'revenue'),
@@ -173,6 +196,48 @@ export function TeamSession({
     setPenaltyRound(snapshot.game.penaltyRound ?? plannedEnd)
     initializedPlanFor.current = snapshot.game.id
   }, [snapshot])
+
+  useEffect(() => {
+    if (
+      !optimizationGameId
+      || !optimization
+      || optimization.target !== optimizationTarget
+      || (optimization.job.status !== 'queued' && optimization.job.status !== 'running')
+    ) return
+
+    let active = true
+    let timeout: number | undefined
+    const poll = async () => {
+      if (!active) return
+      try {
+        const job = await teamApi.getOptimization(optimizationGameId, optimization.job.id)
+        if (!active) return
+        setOptimization({ target: optimization.target, job })
+        if (job.status === 'queued' || job.status === 'running') {
+          timeout = window.setTimeout(() => void poll(), 2_000)
+        }
+      } catch (caught) {
+        if (!active) return
+        if (caught instanceof ApiClientError && caught.status === 404) {
+          setOptimization({
+            target: optimization.target,
+            job: {
+              ...optimization.job,
+              status: 'failed',
+              message: 'The calculation expired. Start it again.',
+            },
+          })
+          return
+        }
+        timeout = window.setTimeout(() => void poll(), 5_000)
+      }
+    }
+    timeout = window.setTimeout(() => void poll(), 1_500)
+    return () => {
+      active = false
+      if (timeout) window.clearTimeout(timeout)
+    }
+  }, [optimization, optimizationGameId, optimizationTarget])
 
   const synchronizeServerClock = useCallback((serverNow: string) => {
     setServerClock({
@@ -378,6 +443,26 @@ export function TeamSession({
     setHistoryPlayer(player)
   }
 
+  const calculateOptimalRun = async () => {
+    setOptimizationStarting(true)
+    setError(null)
+    try {
+      const job = await teamApi.startOptimization(snapshot.game.id, {
+        endRound: optimizationEndRound,
+        penaltyRound: optimizationPenaltyRound,
+      })
+      setOptimization({ target: optimizationTarget, job })
+    } catch (caught) {
+      setError(
+        caught instanceof ApiClientError
+          ? caught.message
+          : 'The reference run could not be started.',
+      )
+    } finally {
+      setOptimizationStarting(false)
+    }
+  }
+
   const removePlayer = async (player: { id: string; name: string }) => {
     setBusy(true)
     setError(null)
@@ -554,7 +639,8 @@ export function TeamSession({
             onExport={() => teamApi.getExport(snapshot.game.id)}
             readmitted={readmitted}
             onDismissReadmit={() => setReadmitted(null)}
-            referencePlayer={optimalRun}
+            optimalRun={optimalRun}
+            onCalculateOptimal={() => void calculateOptimalRun()}
             onViewReference={openReferenceHistory}
           />
         )}

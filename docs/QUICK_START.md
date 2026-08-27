@@ -32,8 +32,9 @@
 ## During the run
 
 - Press **Present** for the projector view.
-- In **Factory floor**, **Optimal Run** is a non-ranked reference student for the unchanged
-   default. Press **View round history** to browse its 25-round simulation.
+- In **Factory floor**, **Optimal Run** is a non-ranked reference student. The exact default is
+   ready immediately. For another setup, press **Calculate reference run**; you can keep teaching
+   while it runs. Press **View round history** when it finishes.
 - The leaderboard uses revenue until the final reveal.
 - If a timer reaches zero, materials allocate automatically. The student presses
   **Advance round** in the message.
