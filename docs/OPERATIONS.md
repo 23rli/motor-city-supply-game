@@ -81,8 +81,10 @@ sudo /usr/local/sbin/motor-city-update
 
 That builds a complete staged runtime, including production dependencies, before stopping the
 service for a same-filesystem swap. It refuses to deploy unless `MIGRATE_ON_START=true` is present.
-Any swap, restart, or database/schema health-check failure restores the complete previous release
-and exits non-zero.
+The candidate systemd unit is validated and backed up with the runtime; successful updates also
+refresh the root-owned update and rollback controls. Any swap, unit reload, restart, or
+database/schema health-check failure restores the complete previous release and its service unit,
+then exits non-zero. A shared process lock rejects a second update or rollback while one is active.
 
 Pass a branch or tag to deploy something other than `main`:
 
@@ -163,8 +165,13 @@ Games and their player data are deleted automatically 12 hours after session cre
 
 Reference calculations use the MIT-licensed HiGHS WebAssembly solver in one worker thread. Only
 one job runs at a time; at most eight wait. A 1-100-round job receives a 10-180 second solver limit
-plus a short shutdown grace period. Completed jobs remain in process memory for 12 hours and are
-lost harmlessly on restart; pressing **Calculate reference run** starts or reuses one.
+plus a short shutdown grace period. At most 64 completed or failed jobs remain in process memory,
+and entries older than 12 hours are removed on the next optimizer request. They are lost harmlessly
+on restart; pressing **Calculate reference run** starts or reuses one.
+
+The systemd unit caps the application and optimizer worker together at 150% CPU and 1 GiB memory.
+On the production 2-vCPU, 4-GiB host, that leaves at least half a CPU and 3 GiB outside the service
+for PostgreSQL and the operating system while preserving a full core for HiGHS.
 
 The worker artifact must exist at `/opt/motor-city/dist-server/optimizer-worker.js`, while the
 HiGHS WASM runtime lives under production `node_modules`. The update script refuses to swap a

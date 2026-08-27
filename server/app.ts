@@ -133,7 +133,11 @@ export function buildApp(
     bodyLimit: 16 * 1_024,
     trustProxy: options.trustProxy ?? false,
   })
-  const optimizer = options.optimizer ?? new OptimizationJobs()
+  const optimizer = options.optimizer ?? new OptimizationJobs({
+    onWorkerError: (error, context) => {
+      app.log.error({ err: error, ...context }, 'Optimization worker failed')
+    },
+  })
   void app.register(fastifyCookie)
   void app.register(fastifyHelmet, {
     // Clear prior HSTS while HTTP still serves the legacy game on this hostname.

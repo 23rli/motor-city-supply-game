@@ -12,6 +12,8 @@ EnvironmentFile=/etc/motor-city.env
 ExecStart=/opt/motor-city/node/bin/node /opt/motor-city/dist-server/index.js
 Restart=always
 RestartSec=3
+CPUQuota=150%
+MemoryMax=1G
 
 NoNewPrivileges=true
 PrivateTmp=true

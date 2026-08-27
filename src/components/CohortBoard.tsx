@@ -45,7 +45,12 @@ function OptimalRunCard({
         <header>
           <div>
             <strong>Optimal Run</strong>
-            <small className="cohort-reference-label">
+            <small
+              className="cohort-reference-label"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               {job?.status === 'failed'
                 ? 'Calculation unavailable'
                 : pending
@@ -84,7 +89,12 @@ function OptimalRunCard({
       <header>
         <div>
           <strong>{player.name}</strong>
-          <small className="cohort-reference-label">
+          <small
+            className="cohort-reference-label"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {job?.status === 'optimal' ? 'Proven optimal simulation' : 'Best run found · not proven optimal'}
           </small>
         </div>

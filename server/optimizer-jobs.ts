@@ -7,6 +7,7 @@ import type { OptimizationInput } from './session-store-core'
 const JOB_TTL_MS = 12 * 60 * 60 * 1_000
 const WORKER_GRACE_MS = 15_000
 const MAX_WAITING_JOBS = 8
+const MAX_RETAINED_TERMINAL_JOBS = 64
 
 interface JobRecord extends OptimalRunJob {
   gameId: string
@@ -19,6 +20,14 @@ interface WorkerResponse {
   ok: boolean
   solution?: OptimizationSolution
   message?: string
+}
+
+interface OptimizationJobsOptions {
+  maxRetainedTerminalJobs?: number
+  onWorkerError?: (
+    error: Error,
+    context: { jobId: string; gameId: string },
+  ) => void
 }
 
 export interface OptimizationService {
@@ -65,12 +74,26 @@ const workerUrl = () => new URL(
 
 const timeLimitFor = (rounds: number) => Math.min(180, Math.max(10, rounds * 4))
 
+const isTerminal = (status: OptimalRunJob['status']) =>
+  status === 'optimal' || status === 'feasible' || status === 'failed'
+
 export class OptimizationJobs implements OptimizationService {
   private readonly jobs = new Map<string, JobRecord>()
   private readonly jobIdByCacheKey = new Map<string, string>()
   private readonly queue: string[] = []
+  private readonly maxRetainedTerminalJobs: number
+  private readonly onWorkerError?: OptimizationJobsOptions['onWorkerError']
   private activeWorker: Worker | null = null
   private closed = false
+
+  constructor(options: OptimizationJobsOptions = {}) {
+    this.maxRetainedTerminalJobs = options.maxRetainedTerminalJobs
+      ?? MAX_RETAINED_TERMINAL_JOBS
+    this.onWorkerError = options.onWorkerError
+    if (!Number.isInteger(this.maxRetainedTerminalJobs) || this.maxRetainedTerminalJobs < 1) {
+      throw new RangeError('maxRetainedTerminalJobs must be a positive integer.')
+    }
+  }
 
   start(gameId: string, input: OptimizationInput) {
     this.prune()
@@ -138,11 +161,15 @@ export class OptimizationJobs implements OptimizationService {
       settled = true
       job.status = 'failed'
       job.message = 'The optimizer exceeded its safety limit. Try fewer rounds.'
+      this.reportWorkerError(job, new Error(
+        `Optimization worker timed out after ${timeLimitSeconds + WORKER_GRACE_MS / 1_000} seconds.`,
+      ))
+      this.prune()
       void worker.terminate().finally(() => this.finishWorker(worker))
     }, timeLimitSeconds * 1_000 + WORKER_GRACE_MS)
     timeout.unref()
 
-    const settle = (response: WorkerResponse) => {
+    const settle = (response: WorkerResponse, workerError?: Error) => {
       if (settled) return
       settled = true
       clearTimeout(timeout)
@@ -153,14 +180,22 @@ export class OptimizationJobs implements OptimizationService {
       } else {
         job.status = 'failed'
         job.message = 'The optimizer could not construct a legal run for this setup.'
+        this.reportWorkerError(
+          job,
+          workerError ?? new Error(response.message ?? 'Optimization worker returned no solution.'),
+        )
       }
+      this.prune()
       void worker.terminate().finally(() => this.finishWorker(worker))
     }
 
     worker.once('message', (response: WorkerResponse) => settle(response))
-    worker.once('error', () => settle({ ok: false }))
-    worker.once('exit', () => {
-      if (!settled) settle({ ok: false })
+    worker.once('error', (error) => settle({ ok: false }, error))
+    worker.once('exit', (code) => {
+      if (!settled) settle(
+        { ok: false },
+        new Error(`Optimization worker exited without a result (code ${code}).`),
+      )
     })
   }
 
@@ -169,14 +204,34 @@ export class OptimizationJobs implements OptimizationService {
     this.runNext()
   }
 
+  private reportWorkerError(job: JobRecord, error: Error) {
+    try {
+      this.onWorkerError?.(error, { jobId: job.id, gameId: job.gameId })
+    } catch {
+      // Observability must not interrupt the queue or gameplay.
+    }
+  }
+
   private prune() {
     const cutoff = Date.now() - JOB_TTL_MS
+    const retainedTerminalJobs: Array<[string, JobRecord]> = []
     for (const [id, job] of this.jobs) {
-      if (job.createdAt >= cutoff || job.status === 'running') continue
-      this.jobs.delete(id)
-      if (this.jobIdByCacheKey.get(job.cacheKey) === id) {
-        this.jobIdByCacheKey.delete(job.cacheKey)
-      }
+      if (!isTerminal(job.status)) continue
+      if (job.createdAt < cutoff) this.remove(id, job)
+      else retainedTerminalJobs.push([id, job])
+    }
+
+    retainedTerminalJobs.sort(([, left], [, right]) => left.createdAt - right.createdAt)
+    const overflow = retainedTerminalJobs.length - this.maxRetainedTerminalJobs
+    for (const [id, job] of retainedTerminalJobs.slice(0, Math.max(0, overflow))) {
+      this.remove(id, job)
+    }
+  }
+
+  private remove(id: string, job: JobRecord) {
+    this.jobs.delete(id)
+    if (this.jobIdByCacheKey.get(job.cacheKey) === id) {
+      this.jobIdByCacheKey.delete(job.cacheKey)
     }
   }
 }

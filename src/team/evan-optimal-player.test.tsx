@@ -88,6 +88,31 @@ describe('Optimal Run reference student', () => {
     expect(markup).toContain('this exact schedule, economics, models, and scoring rounds')
   })
 
+  it('announces background calculation progress without moving focus', () => {
+    const markup = renderToStaticMarkup(
+      <CohortBoard
+        players={[]}
+        code="ABC234"
+        finished={false}
+        endedAt={null}
+        onReadmit={vi.fn()}
+        onRemove={vi.fn()}
+        onExport={vi.fn()}
+        readmitted={null}
+        onDismissReadmit={vi.fn()}
+        optimalRun={{ id: 'queued-run', status: 'queued' }}
+        onCalculateOptimal={vi.fn()}
+        onViewReference={vi.fn()}
+      />,
+    )
+
+    expect(markup).toContain('Waiting for solver')
+    expect(markup).toContain('role="status"')
+    expect(markup).toContain('aria-live="polite"')
+    expect(markup).toContain('aria-atomic="true"')
+    expect(markup).toContain('disabled=""')
+  })
+
   it('labels a time-limited result as not proven optimal', () => {
     const markup = renderToStaticMarkup(
       <CohortBoard

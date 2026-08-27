@@ -49,4 +49,64 @@ describe('optimization worker queue', () => {
       'OPTIMIZATION_JOB_NOT_FOUND',
     )
   }, 20_000)
+
+  it('retains only the newest terminal jobs', async () => {
+    const service = new OptimizationJobs({ maxRetainedTerminalJobs: 2 })
+    services.push(service)
+    const input = {
+      config: createGame({
+        enabledModels: ['green'],
+        resourceSchedule: abundant(1),
+      }).config,
+      endRound: 1,
+      penaltyRound: 1,
+    }
+
+    const completed = []
+    for (const gameId of ['game-1', 'game-2', 'game-3']) {
+      const job = service.start(gameId, input)
+      completed.push({ gameId, jobId: job.id })
+      await vi.waitFor(() => {
+        expect(service.get(gameId, job.id).status).toBe('optimal')
+      }, { timeout: 15_000, interval: 50 })
+    }
+
+    expect(() => service.get(completed[0].gameId, completed[0].jobId)).toThrow(
+      'OPTIMIZATION_JOB_NOT_FOUND',
+    )
+    expect(service.get(completed[1].gameId, completed[1].jobId).status).toBe('optimal')
+    expect(service.get(completed[2].gameId, completed[2].jobId).status).toBe('optimal')
+  }, 30_000)
+
+  it('reports worker diagnostics without exposing them in the public job', async () => {
+    const failures: Array<{ error: Error; jobId: string; gameId: string }> = []
+    const service = new OptimizationJobs({
+      onWorkerError: (error, context) => failures.push({ error, ...context }),
+    })
+    services.push(service)
+    const config = createGame({
+      enabledModels: ['green'],
+      resourceSchedule: abundant(1),
+    }).config
+    config.enabledModels = []
+
+    const started = service.start('broken-game', {
+      config,
+      endRound: 1,
+      penaltyRound: 1,
+    })
+    await vi.waitFor(() => {
+      expect(service.get('broken-game', started.id).status).toBe('failed')
+    }, { timeout: 5_000, interval: 25 })
+
+    expect(service.get('broken-game', started.id).message).toBe(
+      'The optimizer could not construct a legal run for this setup.',
+    )
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toMatchObject({
+      jobId: started.id,
+      gameId: 'broken-game',
+      error: { message: 'At least one model is required for optimization.' },
+    })
+  }, 10_000)
 })

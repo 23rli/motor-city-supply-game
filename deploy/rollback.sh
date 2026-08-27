@@ -15,11 +15,18 @@ STAGE_DIR="$APP_DIR/rollback-next"
 FAILED_DIR="$APP_DIR/rollback-failed"
 APP_PORT="${MOTOR_CITY_APP_PORT:-4000}"
 ENV_FILE="${MOTOR_CITY_ENV_FILE:-/etc/motor-city.env}"
+SERVICE_FILE="${MOTOR_CITY_SERVICE_FILE:-/etc/systemd/system/motor-city.service}"
+DEPLOY_LOCK="${MOTOR_CITY_DEPLOY_LOCK:-/run/lock/motor-city-deploy.lock}"
 
 if [[ $EUID -ne 0 && -z ${MOTOR_CITY_APP_DIR:-} ]]; then
   echo "Run with sudo." >&2
   exit 1
 fi
+command -v flock >/dev/null 2>&1 \
+  || { echo "flock is required to serialize deployments. Nothing changed." >&2; exit 1; }
+exec 9>"$DEPLOY_LOCK"
+flock -n 9 \
+  || { echo "Another Motor City update or rollback is already running. Nothing changed." >&2; exit 1; }
 for item in dist dist-server package.json package-lock.json node_modules; do
   [[ -e $BACKUP_DIR/$item ]] || { echo "Previous release is missing $item." >&2; exit 1; }
 done
@@ -45,17 +52,27 @@ for item in dist dist-server package.json package-lock.json node_modules; do
   cp -a "$BACKUP_DIR/$item" "$STAGE_DIR/"
 done
 chown -R "$APP_USER":"$APP_USER" "$STAGE_DIR"
+if [[ -f $BACKUP_DIR/motor-city.service ]]; then
+  [[ -f $SERVICE_FILE ]] || { echo "Current service unit is missing." >&2; exit 1; }
+  cp -a "$BACKUP_DIR/motor-city.service" "$STAGE_DIR/motor-city.service"
+fi
 
 SWAP_STARTED=0
 restore_current() {
   set +e
   systemctl stop motor-city
   for item in dist dist-server package.json package-lock.json node_modules; do
-    rm -rf "${APP_DIR:?}/$item"
-    [[ -e $FAILED_DIR/$item ]] && mv "$FAILED_DIR/$item" "$APP_DIR/"
+    if [[ -e $FAILED_DIR/$item ]]; then
+      rm -rf "${APP_DIR:?}/$item"
+      mv "$FAILED_DIR/$item" "$APP_DIR/"
+    fi
   done
   chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
     "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+  if [[ -f $FAILED_DIR/motor-city.service ]]; then
+    install -o root -g root -m 644 "$FAILED_DIR/motor-city.service" "$SERVICE_FILE"
+    systemctl daemon-reload
+  fi
   systemctl start motor-city
 }
 
@@ -72,13 +89,18 @@ on_error() {
 trap on_error ERR INT TERM
 
 echo "== Restoring the previous version"
+SWAP_STARTED=1
 systemctl stop motor-city
 mkdir -p "$FAILED_DIR"
-SWAP_STARTED=1
 for item in dist dist-server package.json package-lock.json node_modules; do
   mv "$APP_DIR/$item" "$FAILED_DIR/"
   mv "$STAGE_DIR/$item" "$APP_DIR/"
 done
+if [[ -f $STAGE_DIR/motor-city.service ]]; then
+  cp -a "$SERVICE_FILE" "$FAILED_DIR/motor-city.service"
+  install -o root -g root -m 644 "$STAGE_DIR/motor-city.service" "$SERVICE_FILE"
+  systemctl daemon-reload
+fi
 rm -rf "$STAGE_DIR"
 chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
   "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"

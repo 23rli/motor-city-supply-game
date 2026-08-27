@@ -21,6 +21,10 @@ BACKUP_DIR="$APP_DIR/previous"
 STAGE_DIR="$APP_DIR/next"
 DEPLOY_KEY="$APP_DIR/.ssh/deploy_key"
 ENV_FILE="${MOTOR_CITY_ENV_FILE:-/etc/motor-city.env}"
+SERVICE_FILE="${MOTOR_CITY_SERVICE_FILE:-/etc/systemd/system/motor-city.service}"
+UPDATE_CONTROL="${MOTOR_CITY_UPDATE_CONTROL:-/usr/local/sbin/motor-city-update}"
+ROLLBACK_CONTROL="${MOTOR_CITY_ROLLBACK_CONTROL:-/usr/local/sbin/motor-city-rollback}"
+DEPLOY_LOCK="${MOTOR_CITY_DEPLOY_LOCK:-/run/lock/motor-city-deploy.lock}"
 REPO_SSH="${MOTOR_CITY_REPO_SSH:-git@github.com:23rli/motor-city-supply-game.git}"
 APP_PORT="${MOTOR_CITY_APP_PORT:-4000}"
 REF="${1:-}"
@@ -38,6 +42,11 @@ grep -Eq '^MIGRATE_ON_START=true[[:space:]]*$' "$ENV_FILE" \
 grep -Eq '^NODE_ENV=production[[:space:]]*$' "$ENV_FILE" \
   || die "NODE_ENV=production is required in $ENV_FILE. Nothing changed."
 command -v git >/dev/null 2>&1 || die "git is not installed. Install it, then re-run."
+command -v systemd-analyze >/dev/null 2>&1 \
+  || die "systemd-analyze is required to validate the service unit. Nothing changed."
+command -v flock >/dev/null 2>&1 || die "flock is required to serialize deployments. Nothing changed."
+exec 9>"$DEPLOY_LOCK"
+flock -n 9 || die "Another Motor City update or rollback is already running. Nothing changed."
 
 FREE_MB="$(df -Pm "$APP_DIR" | awk 'NR==2 {print $4}')"
 if (( FREE_MB < 1500 )); then
@@ -93,6 +102,9 @@ as_app "$NODE_BIN/npm" --prefix "$SRC_DIR" run build
 [[ -f $SRC_DIR/dist-server/optimizer-worker.js ]] \
   || die "Build produced no dist-server/optimizer-worker.js."
 [[ -f $SRC_DIR/dist/index.html ]] || die "Build produced no dist/index.html."
+CANDIDATE_SERVICE="$SRC_DIR/deploy/motor-city.service"
+[[ -f $CANDIDATE_SERVICE ]] || die "Release has no deploy/motor-city.service."
+systemd-analyze verify "$CANDIDATE_SERVICE"
 
 restore() {
   set +e
@@ -106,6 +118,10 @@ restore() {
   done
   chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
     "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+  if [[ -f $BACKUP_DIR/motor-city.service ]]; then
+    install -o root -g root -m 644 "$BACKUP_DIR/motor-city.service" "$SERVICE_FILE"
+    systemctl daemon-reload
+  fi
   systemctl start motor-city
   for _ in $(seq 1 20); do
     if release_healthy; then
@@ -127,6 +143,7 @@ on_error() {
     restore
   fi
   rm -rf "$STAGE_DIR"
+  rm -f "${UPDATE_CONTROL}.next" "${ROLLBACK_CONTROL}.next"
   exit "$status"
 }
 trap on_error ERR INT TERM
@@ -143,10 +160,12 @@ as_app "$NODE_BIN/npm" --prefix "$STAGE_DIR" ci --omit=dev --no-audit --no-fund
 for item in dist dist-server package.json package-lock.json node_modules; do
   [[ -e $APP_DIR/$item ]] || die "The current release is incomplete: missing $APP_DIR/$item. Nothing changed."
 done
+[[ -f $SERVICE_FILE ]] || die "The current release is missing $SERVICE_FILE. Nothing changed."
 
 log "Securing the current release for rollback"
 rm -rf "$BACKUP_DIR"
 mkdir -p "$BACKUP_DIR"
+cp -a "$SERVICE_FILE" "$BACKUP_DIR/motor-city.service"
 ROLLBACK_READY=1
 
 log "Swapping releases"
@@ -158,6 +177,8 @@ done
 rm -rf "$STAGE_DIR"
 chown -R "$APP_USER":"$APP_USER" "$APP_DIR/dist" "$APP_DIR/dist-server" \
   "$APP_DIR/node_modules" "$APP_DIR/package.json" "$APP_DIR/package-lock.json"
+install -o root -g root -m 644 "$CANDIDATE_SERVICE" "$SERVICE_FILE"
+systemctl daemon-reload
 
 log "Restarting"
 systemctl enable motor-city
@@ -178,6 +199,12 @@ if (( HEALTHY == 0 )); then
   systemctl --no-pager --lines=30 status motor-city >&2 || true
   false
 fi
+
+log "Refreshing deployment controls"
+install -o root -g root -m 755 "$SRC_DIR/deploy/update.sh" "${UPDATE_CONTROL}.next"
+install -o root -g root -m 755 "$SRC_DIR/deploy/rollback.sh" "${ROLLBACK_CONTROL}.next"
+mv -f "${UPDATE_CONTROL}.next" "$UPDATE_CONTROL"
+mv -f "${ROLLBACK_CONTROL}.next" "$ROLLBACK_CONTROL"
 
 ROLLBACK_READY=0
 trap - ERR INT TERM
